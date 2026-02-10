@@ -1,0 +1,6 @@
+/dataset
+/venv
+/node_modules
+/.cache
+/__pycache__
+*.tgz
