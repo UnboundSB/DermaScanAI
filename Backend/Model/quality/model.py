@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torchvision import transforms, models
 from PIL import Image
-
+#import class to access the model of ai
 class IQAModel:
     def __init__(self, model_filename="iqa_gatekeeper_b0.pth"):
         # 1. Setup Device (Fastest available)
