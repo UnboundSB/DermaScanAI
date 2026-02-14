@@ -1,181 +1,233 @@
 import os
 import cv2
-import numpy as np
-import pandas as pd
+import gc
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
 
 # --- CONFIGURATION ---
-# Raw LFW directory (Input)
-RAW_DIR = r"D:\Projects\DermaScanAI\datasets\facial_recognition\raw\lfw-deepfunneled"
+# Raw Dataset Location
+BASE_RAW_DIR = r"D:\Projects\DermaScanAI\datasets\face_detection\raw\WIDER_DATASET"
+RAW_IMG_DIR = os.path.join(BASE_RAW_DIR, "WIDER_train", "images")
+RAW_ANNO_FILE = os.path.join(BASE_RAW_DIR, "wider_face_split", "wider_face_train_bbx_gt.txt")
 
-# Final Clean directory (Output)
-FINAL_DIR = r"D:\Projects\DermaScanAI\datasets\facial_recognition\final\images_160_png"
-
-# Where to save the plots
-EDA_DIR = r"D:\Projects\DermaScanAI\datasets\facial_recognition\final\eda_reports"
+# Output Location
+BASE_PROC_DIR = r"D:\Projects\DermaScanAI\datasets\face_detection\processed_640"
+PROC_IMG_DIR = os.path.join(BASE_PROC_DIR, "images")
+PROC_LABEL_DIR = os.path.join(BASE_PROC_DIR, "labels")
+EDA_DIR = os.path.join(BASE_PROC_DIR, "eda_reports")
 
 # Settings
-TARGET_SIZE = (160, 160) # Native for FaceNet
-EXTENSION = ".png"       # Lossless
+TARGET_SIZE = (640, 640)
+PNG_COMPRESSION = 3  # 0-9 (3 is good speed/size balance)
 
-def calculate_brightness_contrast(img):
+def parse_wider_annotations(anno_file):
     """
-    Calculates average brightness and contrast (RMS contrast) of an image.
+    Parses WIDER FACE text file.
+    Returns a GENERATOR (saves RAM) instead of a massive list.
     """
-    # Convert to grayscale for calculations
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Brightness = Mean pixel value
-    brightness = np.mean(gray)
-    
-    # Contrast = Standard Deviation of pixel values (RMS Contrast)
-    contrast = np.std(gray)
-    
-    return brightness, contrast
+    if not os.path.exists(anno_file):
+        print(f"[Error] Annotation file not found: {anno_file}")
+        return []
 
-def process_single_image(file_info):
+    with open(anno_file, 'r') as f:
+        lines = f.readlines()
+
+    entries = []
+    i = 0
+    while i < len(lines):
+        filename = lines[i].strip()
+        try:
+            num_faces = int(lines[i+1].strip())
+        except ValueError:
+            i += 1
+            continue
+            
+        boxes = []
+        if num_faces > 0:
+            for j in range(num_faces):
+                # x, y, w, h
+                coords = list(map(float, lines[i + 2 + j].strip().split()))
+                # Valid box check
+                if coords[2] > 0 and coords[3] > 0:
+                    boxes.append(coords[:4])
+            i += 2 + num_faces
+        else:
+            i += 3 
+
+        if len(boxes) > 0:
+            entries.append({"filename": filename, "boxes": boxes})
+            
+    return entries
+
+def process_single_image(entry):
     """
-    1. Reads Raw Image
-    2. Center Crops (Smart)
-    3. Resizes to 160x160
-    4. Saves as PNG
-    5. Returns Brightness/Contrast stats
+    1. Loads Image
+    2. Resizes to 640x640
+    3. Normalizes Coordinates (YOLO Format)
+    4. Saves PNG & TXT
+    Returns: Lightweight stats (list of box dimensions) or None
     """
-    root, filename = file_info
+    img_path = os.path.join(RAW_IMG_DIR, entry['filename'])
     
-    src_path = os.path.join(root, filename)
-    person_name = os.path.basename(root)
-    
-    # Construct Destination Path
-    dest_folder = os.path.join(FINAL_DIR, person_name)
-    fname_no_ext = os.path.splitext(filename)[0]
-    dest_path = os.path.join(dest_folder, fname_no_ext + EXTENSION)
-    
-    # Ensure folder exists
-    try:
-        os.makedirs(dest_folder, exist_ok=True)
-        
-        # Load Image
-        img = cv2.imread(src_path)
-        if img is None:
-            return None
-
-        h, w, _ = img.shape
-
-        # --- SMART CENTER CROP (LFW Specific) ---
-        # LFW-DeepFunneled is 250x250 with face in center.
-        # We crop a 180x180 box from center to remove background noise.
-        crop_dim = 180 
-        center_y, center_x = h // 2, w // 2
-        
-        x1 = max(0, center_x - (crop_dim // 2))
-        y1 = max(0, center_y - (crop_dim // 2))
-        x2 = min(w, center_x + (crop_dim // 2))
-        y2 = min(h, center_y + (crop_dim // 2))
-        
-        crop = img[y1:y2, x1:x2]
-        
-        # Resize to 160x160 (Standard)
-        final_img = cv2.resize(crop, TARGET_SIZE, interpolation=cv2.INTER_AREA)
-        
-        # Save as PNG
-        cv2.imwrite(dest_path, final_img)
-        
-        # --- CALCULATE STATS ---
-        b, c = calculate_brightness_contrast(final_img)
-        
-        return {
-            "filename": dest_path,
-            "person": person_name,
-            "brightness": b,
-            "contrast": c
-        }
-
-    except Exception as e:
-        print(f"Error processing {filename}: {e}")
+    # Check if exists
+    if not os.path.exists(img_path):
         return None
 
-def run_pipeline():
-    print(f"--- STARTING PIPELINE ---")
-    print(f"Source: {RAW_DIR}")
-    print(f"Target: {FINAL_DIR}")
-    
-    if not os.path.exists(RAW_DIR):
-        print("CRITICAL ERROR: Raw directory not found.")
-        return
+    # Load
+    img = cv2.imread(img_path)
+    if img is None:
+        return None
 
-    # 1. Gather Files
-    all_files = []
-    for root, dirs, files in os.walk(RAW_DIR):
-        for f in files:
-            if f.lower().endswith(('.jpg', '.jpeg')):
-                all_files.append((root, f))
+    h_orig, w_orig = img.shape[:2]
     
-    print(f"Found {len(all_files)} images to process.")
-
-    # 2. Process & Gather Stats (Multithreaded)
-    stats_list = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        results = list(tqdm(executor.map(process_single_image, all_files), total=len(all_files), unit="img"))
+    # Resize
+    # INTER_LINEAR is faster/lighter than INTER_AREA
+    img_resized = cv2.resize(img, TARGET_SIZE, interpolation=cv2.INTER_LINEAR)
+    
+    # Calculate Scale Factors
+    scale_x = TARGET_SIZE[0] / w_orig
+    scale_y = TARGET_SIZE[1] / h_orig
+    
+    label_lines = []
+    box_stats = [] # Store width/height for EDA
+    
+    for box in entry['boxes']:
+        x, y, w, h = box
         
-        # Filter None values (errors)
-        stats_list = [r for r in results if r is not None]
+        # 1. Scale Box to 640x640 space
+        x_new = x * scale_x
+        y_new = y * scale_y
+        w_new = w * scale_x
+        h_new = h * scale_y
+        
+        # 2. Normalize to 0-1 (YOLO Format)
+        # Center X, Center Y, Width, Height
+        cx = (x_new + w_new / 2) / TARGET_SIZE[0]
+        cy = (y_new + h_new / 2) / TARGET_SIZE[1]
+        wn = w_new / TARGET_SIZE[0]
+        hn = h_new / TARGET_SIZE[1]
+        
+        # Clamp (Safety to avoid > 1.0)
+        cx = max(0, min(1, cx))
+        cy = max(0, min(1, cy))
+        wn = max(0, min(1, wn))
+        hn = max(0, min(1, hn))
+        
+        # YOLO: <class_id> <x_center> <y_center> <width> <height>
+        label_lines.append(f"0 {cx:.6f} {cy:.6f} {wn:.6f} {hn:.6f}")
+        
+        # Stats (Absolute pixels in 640x640 space)
+        box_stats.append((w_new, h_new))
 
-    print(f"Successfully processed {len(stats_list)} images.")
+    # Save Image (PNG)
+    # Replace slashes in filename (0--Parade/img.jpg -> 0--Parade_img.jpg)
+    flat_name = entry['filename'].replace("/", "_")
+    name_no_ext = os.path.splitext(flat_name)[0]
+    
+    save_img_path = os.path.join(PROC_IMG_DIR, name_no_ext + ".png")
+    cv2.imwrite(save_img_path, img_resized, [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION])
+    
+    # Save Label (TXT)
+    save_lbl_path = os.path.join(PROC_LABEL_DIR, name_no_ext + ".txt")
+    with open(save_lbl_path, 'w') as f:
+        f.write("\n".join(label_lines))
+        
+    return box_stats
 
-    # 3. Generate EDA Plots
+def generate_eda(all_box_stats, total_images):
     print("--- GENERATING EDA PLOTS ---")
     if not os.path.exists(EDA_DIR):
         os.makedirs(EDA_DIR)
         
-    df = pd.DataFrame(stats_list)
+    # Unpack stats
+    widths = [b[0] for b in all_box_stats]
+    heights = [b[1] for b in all_box_stats]
     
-    # Set Plot Style
     sns.set_theme(style="whitegrid")
     
-    # PLOT 1: Brightness Distribution
+    # PLOT 1: Face Size Distribution
     plt.figure(figsize=(10, 6))
-    sns.histplot(df['brightness'], bins=50, kde=True, color="orange")
-    plt.axvline(x=df['brightness'].mean(), color='red', linestyle='--', label=f"Mean: {df['brightness'].mean():.1f}")
-    plt.title("Pixel Brightness Distribution (0=Black, 255=White)")
-    plt.xlabel("Average Brightness")
+    sns.histplot(widths, bins=50, color="blue", alpha=0.6, label="Width")
+    sns.histplot(heights, bins=50, color="red", alpha=0.4, label="Height")
+    plt.title(f"Face Dimensions in {TARGET_SIZE} Image")
+    plt.xlabel("Pixels")
     plt.ylabel("Count")
     plt.legend()
-    plt.savefig(os.path.join(EDA_DIR, "1_brightness_distro.png"))
+    plt.savefig(os.path.join(EDA_DIR, "1_face_size_dist.png"))
     plt.close()
-    print("-> Saved 1_brightness_distro.png")
-
-    # PLOT 2: Contrast Distribution
-    plt.figure(figsize=(10, 6))
-    sns.histplot(df['contrast'], bins=50, kde=True, color="purple")
-    plt.axvline(x=df['contrast'].mean(), color='red', linestyle='--', label=f"Mean: {df['contrast'].mean():.1f}")
-    plt.title("Image Contrast Distribution (RMS)")
-    plt.xlabel("Contrast Level")
-    plt.ylabel("Count")
+    
+    # PLOT 2: Aspect Ratio (Width vs Height)
+    plt.figure(figsize=(8, 8))
+    # Sample only first 2000 points to keep plot fast
+    plt.scatter(widths[:2000], heights[:2000], alpha=0.1, s=10, c='purple')
+    plt.plot([0, 200], [0, 200], 'k--', label="Square (1:1)")
+    plt.title("Face Aspect Ratio (Sampled)")
+    plt.xlabel("Width")
+    plt.ylabel("Height")
     plt.legend()
-    plt.savefig(os.path.join(EDA_DIR, "2_contrast_distro.png"))
+    plt.savefig(os.path.join(EDA_DIR, "2_aspect_ratio.png"))
     plt.close()
-    print("-> Saved 2_contrast_distro.png")
+    
+    # VISUAL SANITY CHECK
+    # Draw boxes on the LAST processed image
+    last_files = sorted(os.listdir(PROC_IMG_DIR))[-1]
+    last_img_path = os.path.join(PROC_IMG_DIR, last_files)
+    last_lbl_path = os.path.join(PROC_LABEL_DIR, last_files.replace(".png", ".txt"))
+    
+    if os.path.exists(last_img_path) and os.path.exists(last_lbl_path):
+        chk_img = cv2.imread(last_img_path)
+        h, w = chk_img.shape[:2]
+        with open(last_lbl_path, 'r') as f:
+            lines = f.readlines()
+            
+        for line in lines:
+            parts = list(map(float, line.split()))
+            cx, cy, wn, hn = parts[1:]
+            
+            # De-normalize
+            w_box = int(wn * w)
+            h_box = int(hn * h)
+            x_box = int((cx * w) - (w_box/2))
+            y_box = int((cy * h) - (h_box/2))
+            
+            cv2.rectangle(chk_img, (x_box, y_box), (x_box+w_box, y_box+h_box), (0, 255, 0), 2)
+            
+        cv2.imwrite(os.path.join(EDA_DIR, "3_sanity_check.jpg"), chk_img)
+        print("-> Saved visual sanity check: 3_sanity_check.jpg")
 
-    # PLOT 3: Brightness vs Contrast Scatter
-    # This helps find "Bad Images" (Low brightness AND Low contrast = useless dark blob)
-    plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df, x='brightness', y='contrast', alpha=0.3, s=10)
-    plt.title("Brightness vs Contrast Check")
-    plt.xlabel("Brightness")
-    plt.ylabel("Contrast")
-    plt.axvline(x=40, color='r', linestyle=':', label='Too Dark Zone')
-    plt.axhline(y=20, color='r', linestyle=':', label='Low Contrast Zone')
-    plt.legend()
-    plt.savefig(os.path.join(EDA_DIR, "3_quality_scatter.png"))
-    plt.close()
-    print("-> Saved 3_quality_scatter.png")
+def run_pipeline():
+    # Make Dirs
+    for d in [PROC_IMG_DIR, PROC_LABEL_DIR, EDA_DIR]:
+        os.makedirs(d, exist_ok=True)
 
-    print(f"--- COMPLETE ---")
-    print(f"EDA Reports are in: {EDA_DIR}")
+    # 1. Parse
+    entries = parse_wider_annotations(RAW_ANNO_FILE)
+    if not entries:
+        return
+
+    print(f"Found {len(entries)} images. Processing sequentially...")
+    
+    all_stats = []
+    count = 0
+    
+    # 2. Process Loop
+    for entry in tqdm(entries):
+        stats = process_single_image(entry)
+        
+        if stats is not None:
+            all_stats.extend(stats)
+            count += 1
+            
+        # RAM SAVER: Clean memory every 200 images
+        if count % 200 == 0:
+            gc.collect()
+
+    print(f"Processed {count} images.")
+    
+    # 3. Generate Reports
+    generate_eda(all_stats, count)
+    print("DONE.")
 
 if __name__ == "__main__":
     run_pipeline()
