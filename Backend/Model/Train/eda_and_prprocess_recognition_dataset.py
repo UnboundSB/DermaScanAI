@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
 
-# --- CONFIGURATION ---
-# Raw Dataset Location
-BASE_RAW_DIR = r"D:\Projects\DermaScanAI\datasets\face_detection\raw\WIDER_DATASET"
-RAW_IMG_DIR = os.path.join(BASE_RAW_DIR, "WIDER_train", "images")
-RAW_ANNO_FILE = os.path.join(BASE_RAW_DIR, "wider_face_split", "wider_face_train_bbx_gt.txt")
+# --- CONFIGURATION (VERIFIED) ---
+RAW_IMG_DIR = r"D:\Projects\DermaScanAI\datasets\face_detection\raw\WIDER_train\images"
+RAW_ANNO_FILE = r"D:\Projects\DermaScanAI\datasets\face_detection\raw\wider_face_split\wider_face_train_bbx_gt.txt"
 
 # Output Location
 BASE_PROC_DIR = r"D:\Projects\DermaScanAI\datasets\face_detection\processed_640"
@@ -19,17 +17,18 @@ EDA_DIR = os.path.join(BASE_PROC_DIR, "eda_reports")
 
 # Settings
 TARGET_SIZE = (640, 640)
-PNG_COMPRESSION = 3  # 0-9 (3 is good speed/size balance)
+PNG_COMPRESSION = 3  # 0-9 (3 is optimized for speed/size)
 
 def parse_wider_annotations(anno_file):
     """
     Parses WIDER FACE text file.
-    Returns a GENERATOR (saves RAM) instead of a massive list.
+    Returns a list of entries.
     """
     if not os.path.exists(anno_file):
-        print(f"[Error] Annotation file not found: {anno_file}")
+        print(f"[Error] Annotation file not found at: {anno_file}")
         return []
 
+    print(f"[Init] Reading annotations from: {anno_file}")
     with open(anno_file, 'r') as f:
         lines = f.readlines()
 
@@ -48,7 +47,7 @@ def parse_wider_annotations(anno_file):
             for j in range(num_faces):
                 # x, y, w, h
                 coords = list(map(float, lines[i + 2 + j].strip().split()))
-                # Valid box check
+                # Valid box check (width and height must be > 0)
                 if coords[2] > 0 and coords[3] > 0:
                     boxes.append(coords[:4])
             i += 2 + num_faces
@@ -72,6 +71,9 @@ def process_single_image(entry):
     
     # Check if exists
     if not os.path.exists(img_path):
+        # WIDER FACE often uses subfolders like '0--Parade/img.jpg'
+        # Verification:
+        # print(f"Missing: {img_path}") 
         return None
 
     # Load
@@ -135,7 +137,7 @@ def process_single_image(entry):
         
     return box_stats
 
-def generate_eda(all_box_stats, total_images):
+def generate_eda(all_box_stats):
     print("--- GENERATING EDA PLOTS ---")
     if not os.path.exists(EDA_DIR):
         os.makedirs(EDA_DIR)
@@ -171,30 +173,31 @@ def generate_eda(all_box_stats, total_images):
     
     # VISUAL SANITY CHECK
     # Draw boxes on the LAST processed image
-    last_files = sorted(os.listdir(PROC_IMG_DIR))[-1]
-    last_img_path = os.path.join(PROC_IMG_DIR, last_files)
-    last_lbl_path = os.path.join(PROC_LABEL_DIR, last_files.replace(".png", ".txt"))
-    
-    if os.path.exists(last_img_path) and os.path.exists(last_lbl_path):
-        chk_img = cv2.imread(last_img_path)
-        h, w = chk_img.shape[:2]
-        with open(last_lbl_path, 'r') as f:
-            lines = f.readlines()
-            
-        for line in lines:
-            parts = list(map(float, line.split()))
-            cx, cy, wn, hn = parts[1:]
-            
-            # De-normalize
-            w_box = int(wn * w)
-            h_box = int(hn * h)
-            x_box = int((cx * w) - (w_box/2))
-            y_box = int((cy * h) - (h_box/2))
-            
-            cv2.rectangle(chk_img, (x_box, y_box), (x_box+w_box, y_box+h_box), (0, 255, 0), 2)
-            
-        cv2.imwrite(os.path.join(EDA_DIR, "3_sanity_check.jpg"), chk_img)
-        print("-> Saved visual sanity check: 3_sanity_check.jpg")
+    if os.listdir(PROC_IMG_DIR):
+        last_files = sorted(os.listdir(PROC_IMG_DIR))[-1]
+        last_img_path = os.path.join(PROC_IMG_DIR, last_files)
+        last_lbl_path = os.path.join(PROC_LABEL_DIR, last_files.replace(".png", ".txt"))
+        
+        if os.path.exists(last_img_path) and os.path.exists(last_lbl_path):
+            chk_img = cv2.imread(last_img_path)
+            h, w = chk_img.shape[:2]
+            with open(last_lbl_path, 'r') as f:
+                lines = f.readlines()
+                
+            for line in lines:
+                parts = list(map(float, line.split()))
+                cx, cy, wn, hn = parts[1:]
+                
+                # De-normalize
+                w_box = int(wn * w)
+                h_box = int(hn * h)
+                x_box = int((cx * w) - (w_box/2))
+                y_box = int((cy * h) - (h_box/2))
+                
+                cv2.rectangle(chk_img, (x_box, y_box), (x_box+w_box, y_box+h_box), (0, 255, 0), 2)
+                
+            cv2.imwrite(os.path.join(EDA_DIR, "3_sanity_check.jpg"), chk_img)
+            print(f"-> Saved visual sanity check: {os.path.join(EDA_DIR, '3_sanity_check.jpg')}")
 
 def run_pipeline():
     # Make Dirs
@@ -204,6 +207,7 @@ def run_pipeline():
     # 1. Parse
     entries = parse_wider_annotations(RAW_ANNO_FILE)
     if not entries:
+        print("No entries found. Check your paths!")
         return
 
     print(f"Found {len(entries)} images. Processing sequentially...")
@@ -226,7 +230,7 @@ def run_pipeline():
     print(f"Processed {count} images.")
     
     # 3. Generate Reports
-    generate_eda(all_stats, count)
+    generate_eda(all_stats)
     print("DONE.")
 
 if __name__ == "__main__":
