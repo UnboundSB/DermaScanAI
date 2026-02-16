@@ -1,130 +1,187 @@
 import os
-import shutil
-import random
-import yaml
-from ultralytics import YOLO
+import torch
+import cv2
+import numpy as np
+from torch.utils.data import Dataset, DataLoader
+import torchvision
+from torchvision.models.detection.ssdlite import SSDLite320_MobileNet_V3_Large_Weights
+from torchvision.transforms import functional as F
+from torch.optim.lr_scheduler import StepLR
+from tqdm import tqdm
 
 # --- CONFIGURATION ---
-# Source of our 640x640 processed data
-SOURCE_DIR = r"D:\Projects\DermaScanAI\datasets\face_detection\processed_640"
-IMAGES_DIR = os.path.join(SOURCE_DIR, "images")
-LABELS_DIR = os.path.join(SOURCE_DIR, "labels")
-
-# Where YOLO will organize the data for training
-DATASET_ROOT = r"D:\Projects\DermaScanAI\datasets\face_detection\yolo_dataset"
+# Path to your PROCESSED data (the 640x640 pngs and .txt labels)
+DATA_ROOT = r"D:\Projects\DermaScanAI\datasets\face_detection\processed_640"
+IMAGES_DIR = os.path.join(DATA_ROOT, "images")
+LABELS_DIR = os.path.join(DATA_ROOT, "labels")
 
 # Training Settings
-EPOCHS = 20           
-BATCH_SIZE = 16       # 16 is safe for 6GB VRAM.
-IMG_SIZE = 640
-MODEL_NAME = "yolov8n.pt" # Nano model (Fastest)
+BATCH_SIZE = 16          # 16 is very safe for SSDLite on 6GB VRAM
+EPOCHS = 15
+LEARNING_RATE = 0.005    # SSDLite likes a slightly higher LR start
+DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-# FINAL OUTPUT NAME
-FINAL_MODEL_NAME = "face_detector.pt"
-
-def organize_dataset():
-    """
-    Splits data into Train/Val and moves to YOLO structure.
-    """
-    # Check if we already did this to save time
-    if os.path.exists(os.path.join(DATASET_ROOT, "train", "images")):
-        print(f"[Info] Dataset found at {DATASET_ROOT}. Skipping organization.")
-        return
-
-    print("--- ORGANIZING DATASET (Train/Val Split) ---")
-    
-    # Get all label files (files with matching images)
-    all_files = [f.replace(".txt", "") for f in os.listdir(LABELS_DIR) if f.endswith(".txt")]
-    
-    if not all_files:
-        print("[Error] No label files found! Did preprocessing run?")
-        return
-
-    # Shuffle & Split 80/20
-    random.seed(42)
-    random.shuffle(all_files)
-    
-    split_idx = int(len(all_files) * 0.8)
-    train_files = all_files[:split_idx]
-    val_files = all_files[split_idx:]
-    
-    print(f"Total: {len(all_files)} | Train: {len(train_files)} | Val: {len(val_files)}")
-    
-    def move_split(file_list, split):
-        img_dest = os.path.join(DATASET_ROOT, split, "images")
-        lbl_dest = os.path.join(DATASET_ROOT, split, "labels")
-        os.makedirs(img_dest, exist_ok=True)
-        os.makedirs(lbl_dest, exist_ok=True)
+# --- 1. CUSTOM RAM-EFFICIENT DATASET ---
+class FaceDetectionDataset(Dataset):
+    def __init__(self, images_dir, labels_dir, transform=None):
+        self.images_dir = images_dir
+        self.labels_dir = labels_dir
+        # We only store filenames (strings), which take almost zero RAM
+        self.image_files = [f for f in os.listdir(images_dir) if f.endswith('.png')]
         
-        for stem in file_list:
-            # Copy Image
-            src_img = os.path.join(IMAGES_DIR, stem + ".png")
-            if os.path.exists(src_img):
-                shutil.copy(src_img, os.path.join(img_dest, stem + ".png"))
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        # 1. Lazy Load Image
+        img_name = self.image_files[idx]
+        img_path = os.path.join(self.images_dir, img_name)
+        
+        # Read with OpenCV
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
+        h, w = image.shape[:2]
+
+        # 2. Lazy Load Label
+        label_name = os.path.splitext(img_name)[0] + ".txt"
+        label_path = os.path.join(self.labels_dir, label_name)
+        
+        boxes = []
+        labels = []
+        
+        if os.path.exists(label_path):
+            with open(label_path, 'r') as f:
+                lines = f.readlines()
+                
+            for line in lines:
+                # YOLO Format: class cx cy w h (Normalized 0-1)
+                parts = list(map(float, line.strip().split()))
+                
+                # SSDLite needs: x1, y1, x2, y2 (Absolute Pixels)
+                cx, cy, wn, hn = parts[1], parts[2], parts[3], parts[4]
+                
+                w_box = wn * w
+                h_box = hn * h
+                x1 = (cx * w) - (w_box / 2)
+                y1 = (cy * h) - (h_box / 2)
+                x2 = x1 + w_box
+                y2 = y1 + h_box
+                
+                # Clamp to image boundaries to prevent NaN loss
+                x1 = max(0, x1)
+                y1 = max(0, y1)
+                x2 = min(w, x2)
+                y2 = min(h, y2)
+                
+                # Valid box check (width & height must be > 0)
+                if x2 > x1 and y2 > y1:
+                    boxes.append([x1, y1, x2, y2])
+                    labels.append(1) # Class 1 = Face
+
+        # Convert to Tensor
+        img_tensor = F.to_tensor(image) # Normalizes to [0, 1] automatically
+        
+        target = {}
+        if len(boxes) > 0:
+            target["boxes"] = torch.tensor(boxes, dtype=torch.float32)
+            target["labels"] = torch.tensor(labels, dtype=torch.int64)
+        else:
+            # Handle negative samples (no faces) safely
+            target["boxes"] = torch.zeros((0, 4), dtype=torch.float32)
+            target["labels"] = torch.zeros((0), dtype=torch.int64)
             
-            # Copy Label
-            src_lbl = os.path.join(LABELS_DIR, stem + ".txt")
-            if os.path.exists(src_lbl):
-                shutil.copy(src_lbl, os.path.join(lbl_dest, stem + ".txt"))
+        return img_tensor, target
 
-    move_split(train_files, "train")
-    move_split(val_files, "val")
-    print("[Success] Dataset organized.")
+def collate_fn(batch):
+    """Required for object detection because images have different numbers of boxes"""
+    return tuple(zip(*batch))
 
-def create_yaml_config():
-    """Create data.yaml for YOLO."""
-    yaml_path = os.path.join(DATASET_ROOT, "face_data.yaml")
+# --- 2. THE OPTIMIZED TRAINING LOOP ---
+def main():
+    print(f"--- INIT PURE PYTORCH TRAINING ON {DEVICE} ---")
     
-    # YOLO needs absolute paths usually
-    data = {
-        'path': os.path.abspath(DATASET_ROOT),
-        'train': 'train/images',
-        'val': 'val/images',
-        'nc': 1,
-        'names': ['face']
-    }
+    # Dataset
+    dataset = FaceDetectionDataset(IMAGES_DIR, LABELS_DIR)
     
-    with open(yaml_path, 'w') as f:
-        yaml.dump(data, f, default_flow_style=False)
+    # Split Train/Val (90/10)
+    train_size = int(0.9 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_ds, val_ds = torch.utils.data.random_split(dataset, [train_size, val_size])
     
-    return yaml_path
+    # Dataloader
+    # num_workers=2 is the sweet spot for Windows. Too high = RAM explosion.
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, 
+                              num_workers=2, collate_fn=collate_fn, pin_memory=True)
+    
+    print(f"Training Images: {len(train_ds)} | Batch Size: {BATCH_SIZE}")
 
-def train_and_rename(yaml_path):
-    print(f"--- STARTING TRAINING ---")
+    # Model: SSDLite320 (MobileNetV3 Backbone)
+    # This model is designed for speed. We load default weights to speed up convergence.
+    print("Loading SSDLite320 (MobileNetV3)...")
+    weights = SSDLite320_MobileNet_V3_Large_Weights.DEFAULT
+    model = torchvision.models.detection.ssdlite320_mobilenet_v3_large(weights=weights)
     
-    model = YOLO(MODEL_NAME)
+    # Modify the Head for 2 classes (Background + Face)
+    # The default has 91 classes (COCO). We shrink it to save compute.
+    model.head.classification_head.num_classes = 2 
     
-    # 1. TRAIN
-    results = model.train(
-        data=yaml_path,
-        epochs=EPOCHS,
-        imgsz=IMG_SIZE,
-        batch=BATCH_SIZE,
-        device=0,         # GPU
-        workers=4,
-        project="DermaScan_Runs", # Creates folder 'DermaScan_Runs'
-        name="train_run",         # Creates subfolder 'train_run'
-        exist_ok=True     # Overwrite if exists
-    )
+    model.to(DEVICE)
     
-    # 2. LOCATE 'best.pt'
-    # Ultralytics saves to: project/name/weights/best.pt
-    best_weights_path = os.path.join("DermaScan_Runs", "train_run", "weights", "best.pt")
+    # Optimizer
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.SGD(params, lr=LEARNING_RATE, momentum=0.9, weight_decay=0.0005)
     
-    # 3. RENAME & MOVE to Root
-    if os.path.exists(best_weights_path):
-        print(f"\n[Training Complete] Found weights at: {best_weights_path}")
+    # Learning Rate Scheduler (Drop LR every 5 epochs)
+    lr_scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
+
+    # Mixed Precision Scaler (Saves VRAM)
+    scaler = torch.cuda.amp.GradScaler()
+
+    # --- TRAINING LOOP ---
+    for epoch in range(EPOCHS):
+        model.train()
+        total_loss = 0
         
-        target_path = os.path.join(os.getcwd(), FINAL_MODEL_NAME)
-        shutil.copy(best_weights_path, target_path)
+        loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}")
         
-        print("-" * 40)
-        print(f"SUCCESS! Your model is ready: {target_path}")
-        print("-" * 40)
-    else:
-        print("[Error] Could not find 'best.pt'. Training might have failed.")
+        for images, targets in loop:
+            # Move to GPU
+            images = list(image.to(DEVICE) for image in images)
+            targets = [{k: v.to(DEVICE) for k, v in t.items()} for t in targets]
+            
+            # Forward Pass (with AMP for speed)
+            with torch.cuda.amp.autocast():
+                # torchvision models return a dict of losses during training
+                loss_dict = model(images, targets)
+                losses = sum(loss for loss in loss_dict.values())
+
+            # Backward Pass
+            optimizer.zero_grad()
+            scaler.scale(losses).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            
+            total_loss += losses.item()
+            
+            # Update Progress Bar
+            loop.set_postfix(loss=losses.item())
+            
+            # OPTIONAL: Explicit cache clear if you still hit OOM (usually not needed with AMP)
+            # torch.cuda.empty_cache()
+
+        lr_scheduler.step()
+        avg_loss = total_loss / len(train_loader)
+        print(f"Epoch {epoch+1} Complete. Average Loss: {avg_loss:.4f}")
+        
+        # Save Checkpoint every 5 epochs
+        if (epoch + 1) % 5 == 0:
+            torch.save(model.state_dict(), f"face_detector_epoch_{epoch+1}.pth")
+            print(f"Checkpoint saved: face_detector_epoch_{epoch+1}.pth")
+
+    # Final Save
+    torch.save(model.state_dict(), "face_detector_final.pth")
+    print("--- DONE. Model saved as 'face_detector_final.pth' ---")
 
 if __name__ == "__main__":
-    organize_dataset()
-    config = create_yaml_config()
-    train_and_rename(config)
+    main()
