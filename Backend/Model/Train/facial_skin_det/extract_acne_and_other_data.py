@@ -1,8 +1,6 @@
 import os
-import zipfile
 import shutil
 import random
-import cv2
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
@@ -14,16 +12,16 @@ from tqdm import tqdm
 
 # --- CONFIGURATION ---
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
-ZIP_PATH = os.path.join(BASE_DIR, "ageing other.zip")
+# Pointing directly to your extracted folder
+SOURCE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms\ageing other\Skin Issues Dataset\Skin v2"
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(CURRENT_DIR, "binary_skin_tone_effnetb0.pth")
 
 FINAL_DATASET_DIR = os.path.join(BASE_DIR, "dataset_final")
-TEMP_EXTRACT_DIR = os.path.join(BASE_DIR, "_temp_multi_extract")
 EXTRAS_DIR = os.path.join(FINAL_DATASET_DIR, "extras_unbalanced")
 
-# Classes we want to extract from the zip and their target folder names
+# Classes we want to extract and their target folder names
 TARGET_CLASSES = {
     "acne": "acne",
     "dark spots": "darkspots", 
@@ -50,39 +48,29 @@ def load_ai_model():
     return model
 
 def process_multi_class():
-    print(f"--- EXTRACTING & BALANCING FROM 'ageing other.zip' ---")
+    print(f"--- SCANNING & BALANCING DIRECTORY: Skin v2 ---")
     
-    # 1. Setup Directories
-    os.makedirs(TEMP_EXTRACT_DIR, exist_ok=True)
+    # 1. Setup Target Directories
     os.makedirs(EXTRAS_DIR, exist_ok=True)
     for final_folder in TARGET_CLASSES.values():
         os.makedirs(os.path.join(FINAL_DATASET_DIR, final_folder), exist_ok=True)
-        # Make EDA folders inside each
-        os.makedirs(os.path.join(FINAL_DATASET_DIR, final_folder, "eda"), exist_ok=True)
 
-    # 2. Extract Zip
-    if not os.path.exists(ZIP_PATH):
-        print(f"[Error] Could not find {ZIP_PATH}")
+    if not os.path.exists(SOURCE_DIR):
+        print(f"[Error] Could not find the source directory at: {SOURCE_DIR}")
         return
 
-    print("Extracting massive zip file (this might take a minute)...")
-    with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
-        zip_ref.extractall(TEMP_EXTRACT_DIR)
-
-    # 3. Categorize Images by Folder Name
+    # 2. Categorize Images by Folder Name
     print("Hunting for target classes in extracted files...")
     class_image_paths = {key: [] for key in TARGET_CLASSES.values()}
     
-    for root, _, files in os.walk(TEMP_EXTRACT_DIR):
-        # Skip macOS junk files
-        if "__MACOSX" in root: continue 
+    for root, _, files in os.walk(SOURCE_DIR):
+        if "__MACOSX" in root: continue # Skip junk files
         
         lower_root = root.lower()
         
-        # Determine which class this folder belongs to
         assigned_class = None
         for search_term, target_folder in TARGET_CLASSES.items():
-            # e.g., if "dark spots" is in the folder path "Skin v2/Dark Spots"
+            # Match folder names like "Dark Spots" to "darkspots"
             if search_term.replace(" ", "") in lower_root.replace(" ", ""):
                 assigned_class = target_folder
                 break
@@ -95,7 +83,7 @@ def process_multi_class():
     for cls, paths in class_image_paths.items():
         print(f" -> Found {len(paths)} raw images for '{cls}'.")
 
-    # 4. Initialize AI
+    # 3. Initialize AI
     model = load_ai_model()
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -103,12 +91,12 @@ def process_multi_class():
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    # 5. Process Each Class
+    # 4. Process Each Class
     results_stats = {}
 
     for cls, paths in class_image_paths.items():
         if not paths:
-            print(f"\nSkipping {cls}: No images found in zip.")
+            print(f"\nSkipping {cls}: No images found.")
             continue
             
         print(f"\n--- AI Sorting '{cls}' ---")
@@ -127,7 +115,7 @@ def process_multi_class():
                 else:
                     light_images.append(img_path)
             except:
-                pass # Skip corrupt
+                pass 
 
         orig_dark = len(dark_images)
         orig_light = len(light_images)
@@ -143,35 +131,32 @@ def process_multi_class():
         selected_dark = set(random.sample(dark_images, target_count))
         selected_light = set(random.sample(light_images, target_count))
         
-        # Move files
+        # Copy files (safely, without deleting originals)
         dest_dir = os.path.join(FINAL_DATASET_DIR, cls)
         added_count = 0
         
         for img_list, tone in [(dark_images, "dark"), (light_images, "light")]:
             for img_path in img_list:
-                safe_name = f"ageingzip_{cls}_{tone}_{added_count}_{os.path.basename(img_path)}"
+                safe_name = f"skinv2_{cls}_{tone}_{added_count}_{os.path.basename(img_path)}"
                 
                 if img_path in (selected_dark | selected_light):
-                    shutil.move(img_path, os.path.join(dest_dir, safe_name))
+                    shutil.copy(img_path, os.path.join(dest_dir, safe_name))
                 else:
-                    shutil.move(img_path, os.path.join(EXTRAS_DIR, safe_name))
+                    shutil.copy(img_path, os.path.join(EXTRAS_DIR, safe_name))
                 added_count += 1
                 
         results_stats[cls] = {
             "orig_dark": orig_dark, "orig_light": orig_light, "balanced_total": target_count * 2
         }
 
-    # 6. Cleanup
-    shutil.rmtree(TEMP_EXTRACT_DIR)
-
-    # 7. Generate Master EDA Plot
+    # 5. Generate Master EDA Plot
     if results_stats:
         print("\nGenerating Consolidated EDA Dashboard...")
         sns.set_theme(style="whitegrid")
         classes_processed = list(results_stats.keys())
         
         fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-        fig.suptitle("New Additions from 'ageing other.zip'", fontsize=16, weight='bold')
+        fig.suptitle("New Additions from 'Skin v2' Directory", fontsize=16, weight='bold')
         
         # Plot 1: Unbalanced
         dark_orig = [results_stats[c]["orig_dark"] for c in classes_processed]
@@ -182,7 +167,7 @@ def process_multi_class():
         
         axes[0].bar(x - width/2, dark_orig, width, label='Dark Skin', color='#8D5524')
         axes[0].bar(x + width/2, light_orig, width, label='Light Skin', color='#FFC0CB')
-        axes[0].set_title("Original Imbalance in Zip")
+        axes[0].set_title("Original Imbalance in Source")
         axes[0].set_xticks(x)
         axes[0].set_xticklabels(classes_processed)
         axes[0].set_ylabel("Image Count")
@@ -198,14 +183,14 @@ def process_multi_class():
         axes[1].set_xticklabels(classes_processed)
         axes[1].legend()
 
-        plot_path = os.path.join(FINAL_DATASET_DIR, "multi_class_zip_audit.png")
+        plot_path = os.path.join(FINAL_DATASET_DIR, "skinv2_folder_audit.png")
         plt.tight_layout()
         plt.savefig(plot_path)
         plt.close()
         print(f"[Saved] Consolidated dashboard saved to: {plot_path}")
 
     print("\n" + "="*40)
-    print("ZIP PROCESSING COMPLETE")
+    print("DIRECTORY PROCESSING COMPLETE")
     print("="*40)
     for cls, stats in results_stats.items():
         print(f"{cls.ljust(12)}: Added {stats['balanced_total']} perfectly balanced images.")
