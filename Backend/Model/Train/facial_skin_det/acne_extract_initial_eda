@@ -1,0 +1,150 @@
+import os
+import zipfile
+import shutil
+import random
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm
+
+# --- CONFIGURATION ---
+BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
+ZIP_PATH = os.path.join(BASE_DIR, "acne.zip")
+
+# Target Directories
+FINAL_ACNE_DIR = os.path.join(BASE_DIR, "dataset_final", "acne")
+EDA_DIR = os.path.join(FINAL_ACNE_DIR, "eda")
+TEMP_EXTRACT_DIR = os.path.join(FINAL_ACNE_DIR, "_temp_extract")
+EXTRAS_DIR = os.path.join(FINAL_ACNE_DIR, "extras_unbalanced")
+
+# Settings
+SKIN_TONE_THRESHOLD = 130 # Below 130 = Dark, Above = Light
+random.seed(42) # For reproducibility
+
+def estimate_skin_tone(image_path):
+    """Reads image and categorizes as 'Dark' or 'Light'."""
+    try:
+        img = cv2.imread(image_path)
+        if img is None: return None
+        
+        h, w = img.shape[:2]
+        # Crop center 30% to avoid hair/background
+        cy, cx = h // 2, w // 2
+        h_crop, w_crop = int(h * 0.3), int(w * 0.3)
+        crop = img[cy-h_crop:cy+h_crop, cx-w_crop:cx+w_crop]
+        
+        if crop.size == 0: return None
+
+        lab = cv2.cvtColor(crop, cv2.COLOR_BGR2LAB)
+        l_channel, _, _ = cv2.split(lab)
+        
+        avg_brightness = np.median(l_channel)
+        return "Dark" if avg_brightness < SKIN_TONE_THRESHOLD else "Light"
+    except Exception:
+        return None
+
+def process_and_balance():
+    print(f"--- PROCESSING ACNE DATASET ---")
+    
+    # 1. Setup Directories
+    for d in [FINAL_ACNE_DIR, EDA_DIR, TEMP_EXTRACT_DIR, EXTRAS_DIR]:
+        os.makedirs(d, exist_ok=True)
+
+    # 2. Extract Zip
+    if not os.path.exists(ZIP_PATH):
+        print(f"[Error] Could not find {ZIP_PATH}")
+        return
+
+    print("Extracting zip file...")
+    with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
+        zip_ref.extractall(TEMP_EXTRACT_DIR)
+
+    # 3. Find all extracted images (handling nested folders inside the zip)
+    all_extracted_images = []
+    for root, _, files in os.walk(TEMP_EXTRACT_DIR):
+        for file in files:
+            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                all_extracted_images.append(os.path.join(root, file))
+
+    print(f"Found {len(all_extracted_images)} images. Analyzing skin tones...")
+
+    # 4. Analyze Skin Tones
+    dark_images = []
+    light_images = []
+    
+    for img_path in tqdm(all_extracted_images, desc="Scoring Tones"):
+        tone = estimate_skin_tone(img_path)
+        if tone == "Dark":
+            dark_images.append(img_path)
+        elif tone == "Light":
+            light_images.append(img_path)
+        else:
+            # Corrupt or unreadable
+            os.remove(img_path) 
+
+    orig_dark_count = len(dark_images)
+    orig_light_count = len(light_images)
+    
+    # 5. Balance the Dataset (1:1 Ratio)
+    target_count = min(orig_dark_count, orig_light_count)
+    
+    if target_count == 0:
+        print("[Critical Error] One of the skin tone categories has 0 images. Cannot balance.")
+        return
+
+    print(f"\nBalancing Dataset to {target_count} images per skin tone...")
+    
+    # Randomly sample to balance
+    selected_dark = random.sample(dark_images, target_count)
+    selected_light = random.sample(light_images, target_count)
+    
+    # 6. Move Files to Final Destinations
+    final_count = 0
+    
+    for img_list, category_name in [(dark_images, "dark"), (light_images, "light")]:
+        for img_path in img_list:
+            filename = os.path.basename(img_path)
+            # Prevent filename collisions from flat zip extraction
+            safe_name = f"{category_name}_{final_count}_{filename}" 
+            
+            is_selected = (img_path in selected_dark) or (img_path in selected_light)
+            dest_folder = FINAL_ACNE_DIR if is_selected else EXTRAS_DIR
+            dest_path = os.path.join(dest_folder, safe_name)
+            
+            shutil.move(img_path, dest_path)
+            final_count += 1
+
+    # Cleanup temp extraction folder
+    shutil.rmtree(TEMP_EXTRACT_DIR)
+
+    # 7. Generate EDA Plots
+    print("Generating EDA Plots...")
+    sns.set_theme(style="whitegrid")
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # Plot 1: Before Balancing
+    sns.barplot(x=["Dark Skin", "Light Skin"], y=[orig_dark_count, orig_light_count], ax=axes[0], palette=["#8D5524", "#FFC0CB"])
+    axes[0].set_title(f"Original Zip Extraction\nTotal: {orig_dark_count + orig_light_count}")
+    axes[0].set_ylabel("Image Count")
+    
+    # Plot 2: After Balancing
+    sns.barplot(x=["Dark Skin", "Light Skin"], y=[target_count, target_count], ax=axes[1], palette=["#8D5524", "#FFC0CB"])
+    axes[1].set_title(f"Balanced 'dataset_final/acne'\nTotal: {target_count * 2}")
+    axes[1].set_ylabel("Image Count")
+
+    plot_path = os.path.join(EDA_DIR, "acne_skin_tone_balance.png")
+    plt.tight_layout()
+    plt.savefig(plot_path)
+    plt.close()
+
+    print("\n" + "="*40)
+    print("ACNE DATASET READY")
+    print("="*40)
+    print(f"Balanced Acne Images: {target_count * 2} (Saved in {FINAL_ACNE_DIR})")
+    print(f"Unused Extras:        {(orig_dark_count + orig_light_count) - (target_count * 2)} (Saved in {EXTRAS_DIR})")
+    print(f"EDA Plot Saved to:    {plot_path}")
+
+if __name__ == "__main__":
+    process_and_balance()
