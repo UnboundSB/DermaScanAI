@@ -12,7 +12,6 @@ from tqdm import tqdm
 
 # --- CONFIGURATION ---
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
-# Pointing directly to your extracted folder
 SOURCE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms\ageing other\Skin Issues Dataset\Skin v2"
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +20,6 @@ MODEL_PATH = os.path.join(CURRENT_DIR, "binary_skin_tone_effnetb0.pth")
 FINAL_DATASET_DIR = os.path.join(BASE_DIR, "dataset_final")
 EXTRAS_DIR = os.path.join(FINAL_DATASET_DIR, "extras_unbalanced")
 
-# Classes we want to extract and their target folder names
 TARGET_CLASSES = {
     "acne": "acne",
     "dark spots": "darkspots", 
@@ -50,27 +48,23 @@ def load_ai_model():
 def process_multi_class():
     print(f"--- SCANNING & BALANCING DIRECTORY: Skin v2 ---")
     
-    # 1. Setup Target Directories
     os.makedirs(EXTRAS_DIR, exist_ok=True)
     for final_folder in TARGET_CLASSES.values():
         os.makedirs(os.path.join(FINAL_DATASET_DIR, final_folder), exist_ok=True)
 
     if not os.path.exists(SOURCE_DIR):
-        print(f"[Error] Could not find the source directory at: {SOURCE_DIR}")
+        print(f"[Error] Could not find source directory: {SOURCE_DIR}")
         return
 
-    # 2. Categorize Images by Folder Name
     print("Hunting for target classes in extracted files...")
     class_image_paths = {key: [] for key in TARGET_CLASSES.values()}
     
     for root, _, files in os.walk(SOURCE_DIR):
-        if "__MACOSX" in root: continue # Skip junk files
+        if "__MACOSX" in root: continue 
         
         lower_root = root.lower()
-        
         assigned_class = None
         for search_term, target_folder in TARGET_CLASSES.items():
-            # Match folder names like "Dark Spots" to "darkspots"
             if search_term.replace(" ", "") in lower_root.replace(" ", ""):
                 assigned_class = target_folder
                 break
@@ -83,7 +77,6 @@ def process_multi_class():
     for cls, paths in class_image_paths.items():
         print(f" -> Found {len(paths)} raw images for '{cls}'.")
 
-    # 3. Initialize AI
     model = load_ai_model()
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -91,7 +84,6 @@ def process_multi_class():
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    # 4. Process Each Class
     results_stats = {}
 
     for cls, paths in class_image_paths.items():
@@ -120,7 +112,6 @@ def process_multi_class():
         orig_dark = len(dark_images)
         orig_light = len(light_images)
         
-        # Balance
         target_count = min(orig_dark, orig_light)
         print(f"[{cls}] Imbalance: {orig_dark} Dark vs {orig_light} Light. Balancing to {target_count} each.")
         
@@ -131,13 +122,14 @@ def process_multi_class():
         selected_dark = set(random.sample(dark_images, target_count))
         selected_light = set(random.sample(light_images, target_count))
         
-        # Copy files (safely, without deleting originals)
         dest_dir = os.path.join(FINAL_DATASET_DIR, cls)
         added_count = 0
         
         for img_list, tone in [(dark_images, "dark"), (light_images, "light")]:
             for img_path in img_list:
-                safe_name = f"skinv2_{cls}_{tone}_{added_count}_{os.path.basename(img_path)}"
+                # --- BUG FIX: STRIP LONG NAMES, KEEP EXTENSION ---
+                _, ext = os.path.splitext(img_path)
+                safe_name = f"skinv2_{cls}_{tone}_{added_count:05d}{ext.lower()}"
                 
                 if img_path in (selected_dark | selected_light):
                     shutil.copy(img_path, os.path.join(dest_dir, safe_name))
@@ -149,7 +141,6 @@ def process_multi_class():
             "orig_dark": orig_dark, "orig_light": orig_light, "balanced_total": target_count * 2
         }
 
-    # 5. Generate Master EDA Plot
     if results_stats:
         print("\nGenerating Consolidated EDA Dashboard...")
         sns.set_theme(style="whitegrid")
@@ -158,7 +149,6 @@ def process_multi_class():
         fig, axes = plt.subplots(1, 2, figsize=(14, 6))
         fig.suptitle("New Additions from 'Skin v2' Directory", fontsize=16, weight='bold')
         
-        # Plot 1: Unbalanced
         dark_orig = [results_stats[c]["orig_dark"] for c in classes_processed]
         light_orig = [results_stats[c]["orig_light"] for c in classes_processed]
         
@@ -173,7 +163,6 @@ def process_multi_class():
         axes[0].set_ylabel("Image Count")
         axes[0].legend()
         
-        # Plot 2: Balanced
         balanced_counts = [results_stats[c]["balanced_total"] // 2 for c in classes_processed]
         
         axes[1].bar(x - width/2, balanced_counts, width, label='Dark Skin', color='#8D5524')
@@ -187,7 +176,6 @@ def process_multi_class():
         plt.tight_layout()
         plt.savefig(plot_path)
         plt.close()
-        print(f"[Saved] Consolidated dashboard saved to: {plot_path}")
 
     print("\n" + "="*40)
     print("DIRECTORY PROCESSING COMPLETE")
