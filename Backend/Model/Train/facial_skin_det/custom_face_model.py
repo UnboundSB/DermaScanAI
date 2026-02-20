@@ -4,12 +4,11 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-# Since model.py is now in the same directory, we just import it directly.
+# Safely import YOUR detector from the file sitting right next to this one
 from custom_face_model import FaceDetector
 
 # --- CONFIGURATION ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Assumes your weights file is named 'face_detector_final.pth' in this folder
 DETECTOR_WEIGHTS = os.path.join(CURRENT_DIR, "face_detector_final.pth")
 
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
@@ -21,17 +20,13 @@ TARGET_SIZE = 224
 MARGIN = 0.2  # Expand the face box by 20% to keep the forehead/chin context
 
 def get_best_face_box(detector, img):
-    """
-    Passes the image to your custom SSDLite model and extracts 
-    the bounding box with the highest confidence score.
-    """
+    """Passes the image to your SSDLite model and extracts the best bounding box."""
     try:
         faces = detector.detect(img)
         
         if not faces or len(faces) == 0:
             return None
             
-        # Sort faces by score descending and grab the highest confidence box
         best_face = max(faces, key=lambda f: f['score'])
         x1, y1, x2, y2 = best_face['box']
         
@@ -45,18 +40,15 @@ def process_image(img_path, detector):
         img = cv2.imread(img_path)
         if img is None: return None
         
-        # Get bounding box from your custom model
         box = get_best_face_box(detector, img)
         if box is None: return None 
         
         x1, y1, x2, y2 = box
-        
         w = x2 - x1
         h = y2 - y1
         center_x = x1 + w / 2
         center_y = y1 + h / 2
         
-        # Expand box by margin and force it to be a perfect square
         size = max(w, h) * (1 + MARGIN)
         
         new_x1 = max(0, int(center_x - size / 2))
@@ -94,9 +86,9 @@ def main():
     
     if not os.path.exists(DETECTOR_WEIGHTS):
         print(f"[Critical Error] Could not find weights at {DETECTOR_WEIGHTS}")
+        print("Please make sure 'face_detector_final.pth' is in the same folder as this script.")
         return
 
-    # Initialize your custom detector
     print("Loading Custom Face Detector...")
     detector = FaceDetector(model_path=DETECTOR_WEIGHTS, confidence_threshold=0.5)
     
