@@ -1,25 +1,17 @@
 import os
-import sys
 import cv2
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-# --- DYNAMIC PATH INJECTION ---
-# This points Python exactly to D:\Projects\DermaScanAI\Backend\Model\detection
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-DETECTION_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "..", "detection"))
-sys.path.append(DETECTION_DIR)
-
-# Import your custom detector from model.py
-# (Update 'FaceDetector' to whatever your actual class/function is named)
-try:
-    import Backend.Model.Train.facial_skin_det.custom_face_model as custom_face_model
-except ImportError:
-    print(f"[Error] Could not find 'model.py' or the target class in {DETECTION_DIR}")
-    sys.exit(1)
+# Since model.py is now in the same directory, we just import it directly.
+from custom_face_model import FaceDetector
 
 # --- CONFIGURATION ---
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Assumes your weights file is named 'face_detector_final.pth' in this folder
+DETECTOR_WEIGHTS = os.path.join(CURRENT_DIR, "face_detector_final.pth")
+
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
 INPUT_DIR = os.path.join(BASE_DIR, "dataset_final")
 OUTPUT_DIR = os.path.join(BASE_DIR, "dataset_ready_for_training")
@@ -28,23 +20,24 @@ CLASSES = ["acne", "darkspots", "wrinkles", "puffy_eyes", "clear_face"]
 TARGET_SIZE = 224
 MARGIN = 0.2  # Expand the face box by 20% to keep the forehead/chin context
 
-def run_custom_detector(detector, img):
+def get_best_face_box(detector, img):
     """
-    Wrapper for your custom model. 
-    Modify this block to match how your model.py takes an image and returns a bounding box.
-    Expected return format: x1, y1, x2, y2
+    Passes the image to your custom SSDLite model and extracts 
+    the bounding box with the highest confidence score.
     """
-    # Example: boxes = detector.predict(img)
-    # Replace this with your actual model's inference code:
-    boxes = detector(img) 
-    
-    if boxes is None or len(boxes) == 0:
-        return None
+    try:
+        faces = detector.detect(img)
         
-    # Assuming it returns a list of boxes, grab the first/most prominent one
-    # Adjust indexing if your model returns a different format (like a dict or tensor)
-    x1, y1, x2, y2 = boxes[0][:4] 
-    return int(x1), int(y1), int(x2), int(y2)
+        if not faces or len(faces) == 0:
+            return None
+            
+        # Sort faces by score descending and grab the highest confidence box
+        best_face = max(faces, key=lambda f: f['score'])
+        x1, y1, x2, y2 = best_face['box']
+        
+        return int(x1), int(y1), int(x2), int(y2)
+    except Exception as e:
+        return None
 
 def process_image(img_path, detector):
     """Detects face using YOUR model, applies square crop, and pads/resizes to 224x224."""
@@ -53,7 +46,7 @@ def process_image(img_path, detector):
         if img is None: return None
         
         # Get bounding box from your custom model
-        box = run_custom_detector(detector, img)
+        box = get_best_face_box(detector, img)
         if box is None: return None 
         
         x1, y1, x2, y2 = box
@@ -95,13 +88,17 @@ def process_image(img_path, detector):
         return None
 
 def main():
-    print(f"--- STARTING FACE EXTRACTION USING CUSTOM DETECTOR ---")
+    print(f"--- STARTING FACE EXTRACTION USING SSDLITE CUSTOM DETECTOR ---")
     
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
-    # Initialize your custom detector here
+    if not os.path.exists(DETECTOR_WEIGHTS):
+        print(f"[Critical Error] Could not find weights at {DETECTOR_WEIGHTS}")
+        return
+
+    # Initialize your custom detector
     print("Loading Custom Face Detector...")
-    detector = FaceDetector() # Update this if your init requires weights path or config
+    detector = FaceDetector(model_path=DETECTOR_WEIGHTS, confidence_threshold=0.5)
     
     total_processed = 0
     total_failed = 0
