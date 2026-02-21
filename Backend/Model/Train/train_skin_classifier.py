@@ -166,8 +166,8 @@ def main():
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
     
-    # --- NEW: The Putter ---
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2, verbose=True)
+    # Fixed line for PyTorch 2.2+
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
     
