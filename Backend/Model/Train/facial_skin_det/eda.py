@@ -12,13 +12,13 @@ INPUT_DIR = os.path.join(BASE_DIR, "dataset_ready_for_training")
 REPORT_DIR = os.path.join(BASE_DIR, "EDA_Reports")
 
 CLASSES = ["acne", "darkspots", "wrinkles", "puffy_eyes", "clear_face"]
+TARGET_SIZE = 224
 
 def calculate_ita(l_channel, b_channel):
     """Calculates Individual Typology Angle (ITA) for skin tone."""
     l_std = l_channel.astype(np.float32) * 100.0 / 255.0
     b_std = b_channel.astype(np.float32) - 128.0
     
-    # Avoid division by zero
     b_std[b_std == 0] = 1e-5 
     
     ita = np.arctan2((l_std - 50), b_std) * (180 / np.pi)
@@ -32,24 +32,40 @@ def get_skin_tone_category(ita_value):
     elif -30 < ita_value <= 10: return "Brown"
     else: return "Dark"
 
-def analyze_image(img_path):
+def process_and_analyze_image(img_path, target_folder, img_name):
     img = cv2.imread(img_path)
     if img is None: return None
     
-    # 1. Create a mask to IGNORE the black padding added during cropping
+    # 1. ENFORCE RESIZE (Safety Net)
+    if img.shape[:2] != (TARGET_SIZE, TARGET_SIZE):
+        img = cv2.resize(img, (TARGET_SIZE, TARGET_SIZE), interpolation=cv2.INTER_AREA)
+
+    # 2. CONVERT TO PNG & CLEANUP
+    base_name, ext = os.path.splitext(img_name)
+    is_jpg = ext.lower() in ['.jpg', '.jpeg']
+    
+    new_img_name = base_name + '.png'
+    new_img_path = os.path.join(target_folder, new_img_name)
+    
+    # Save as lossless PNG
+    cv2.imwrite(new_img_path, img)
+    
+    # Trash the old compressed JPG so we don't duplicate files
+    if is_jpg and os.path.exists(img_path):
+        os.remove(img_path)
+    
+    # 3. EDA METRICS CALCULATION (Using the fresh PNG data)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    mask = gray > 0
+    mask = gray > 0 # Ignore black padding
     
     if not np.any(mask): return None 
     
     valid_pixels = gray[mask]
     
-    # 2. Quality Metrics
     brightness = np.mean(valid_pixels)
     contrast = np.std(valid_pixels)
     sharpness = cv2.Laplacian(gray, cv2.CV_64F).var() 
     
-    # 3. Skin Tone (ITA) Analysis
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l_channel, a_channel, b_channel = cv2.split(lab)
     
@@ -68,7 +84,7 @@ def analyze_image(img_path):
     }
 
 def main():
-    print("--- STARTING DATASET EXPLORATORY ANALYSIS ---")
+    print("--- STARTING DATASET CONVERSION & EXPLORATORY ANALYSIS ---")
     os.makedirs(REPORT_DIR, exist_ok=True)
     
     data = []
@@ -80,11 +96,11 @@ def main():
         images = [f for f in os.listdir(target_folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
         if not images: continue
         
-        print(f"Analyzing {cls} ({len(images)} images)...")
+        print(f"Processing & Analyzing {cls} ({len(images)} images)...")
         
         for img_name in tqdm(images):
             img_path = os.path.join(target_folder, img_name)
-            metrics = analyze_image(img_path)
+            metrics = process_and_analyze_image(img_path, target_folder, img_name)
             
             if metrics:
                 metrics["Class"] = cls
@@ -97,12 +113,11 @@ def main():
     df = pd.DataFrame(data)
     
     # ==========================================
-    # GENERATING PLOTS
+    # PLOTS & REPORT GENERATION
     # ==========================================
     print("\nGenerating Visual Plots...")
     sns.set_theme(style="whitegrid")
     
-    # 1. Class Distribution
     plt.figure(figsize=(10, 6))
     sns.countplot(data=df, x="Class", order=CLASSES, palette="viridis")
     plt.title("Final Class Distribution")
@@ -110,7 +125,6 @@ def main():
     plt.savefig(os.path.join(REPORT_DIR, "1_class_distribution.png"))
     plt.close()
     
-    # 2. Skin Tone Distribution
     plt.figure(figsize=(12, 6))
     tone_order = ["Very Light", "Light", "Intermediate", "Tan", "Brown", "Dark"]
     sns.countplot(data=df, x="Class", hue="Skin_Tone", hue_order=tone_order, palette="YlOrBr")
@@ -121,28 +135,20 @@ def main():
     plt.savefig(os.path.join(REPORT_DIR, "2_skin_tone_distribution.png"))
     plt.close()
 
-    # 3. Image Quality Metrics
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    
     sns.kdeplot(data=df, x="Brightness", hue="Class", fill=True, ax=axes[0])
     axes[0].set_title("Brightness Distribution")
-    
     sns.kdeplot(data=df, x="Contrast", hue="Class", fill=True, ax=axes[1])
     axes[1].set_title("Contrast Distribution")
-    
     df['Log_Sharpness'] = np.log1p(df['Sharpness'])
     sns.kdeplot(data=df, x="Log_Sharpness", hue="Class", fill=True, ax=axes[2])
     axes[2].set_title("Sharpness Distribution (Log Scale)")
-    
     plt.tight_layout()
     plt.savefig(os.path.join(REPORT_DIR, "3_quality_metrics.png"))
     plt.close()
 
     df.to_csv(os.path.join(REPORT_DIR, "full_eda_metrics.csv"), index=False)
     
-    # ==========================================
-    # TERMINAL NUMERICAL REPORT
-    # ==========================================
     print("\n" + "="*50)
     print("NUMERICAL RESULTS SUMMARY")
     print("="*50)
@@ -153,9 +159,7 @@ def main():
         print(f"{cls_name:<15}: {count} images")
 
     print("\n--- 2. Skin Tone Distribution by Class ---")
-    # Create a pivot table for clean terminal viewing
     skin_tone_pivot = df.groupby(['Class', 'Skin_Tone']).size().unstack(fill_value=0)
-    # Ensure columns follow the logical light-to-dark order if present
     available_tones = [t for t in tone_order if t in skin_tone_pivot.columns]
     skin_tone_pivot = skin_tone_pivot[available_tones]
     print(skin_tone_pivot.to_string())
@@ -165,10 +169,10 @@ def main():
     print(quality_metrics.to_string())
     
     print("\n" + "="*50)
-    print("EDA COMPLETE")
+    print("EDA & CONVERSION COMPLETE")
     print("="*50)
-    print(f"Total Images Analyzed: {len(df)}")
-    print(f"All reports and plots saved to: {REPORT_DIR}")
+    print(f"Total Images Converted & Analyzed: {len(df)}")
+    print("All files are now strictly 224x224 .png format.")
 
 if __name__ == "__main__":
     main()
