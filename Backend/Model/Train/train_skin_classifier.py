@@ -15,19 +15,18 @@ import multiprocessing
 # --- CONFIGURATION ---
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
 DATA_DIR = os.path.join(BASE_DIR, "dataset_ready_for_training")
-MODEL_SAVE_PATH = os.path.join(BASE_DIR, "symptom_classifier_optimized.pth")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "symptom_classifier_unchained.pth")
 PLOT_DIR = os.path.join(BASE_DIR, "Training_Plots")
 
 NUM_CLASSES = 5
 BATCH_SIZE = 32
-NUM_EPOCHS = 20 # Bumped up to 20 because early stopping will catch it if it finishes early
+NUM_EPOCHS = 30 # Taking the training wheels off
 LEARNING_RATE = 1e-4
 TEST_SAMPLES_PER_CLASS = 200
-EARLY_STOPPING_PATIENCE = 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- GLOBAL DATASET WRAPPER (Windows Multiprocessing Fix) ---
+# --- GLOBAL DATASET WRAPPER ---
 class DatasetWrapper(torch.utils.data.Dataset):
     def __init__(self, subset, transform=None):
         self.subset = subset
@@ -116,9 +115,9 @@ def plot_training_curves(history, save_dir):
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "optimized_training_curves.png"))
+    plt.savefig(os.path.join(save_dir, "unchained_training_curves.png"))
     plt.close()
-    print(f"Saved Optimized Learning Curves to {save_dir}")
+    print(f"Saved Unchained Learning Curves to {save_dir}")
 
 def plot_confusion_matrix(y_true, y_pred, classes, save_dir):
     cm = confusion_matrix(y_true, y_pred)
@@ -128,7 +127,7 @@ def plot_confusion_matrix(y_true, y_pred, classes, save_dir):
     plt.ylabel('True Class')
     plt.xlabel('Predicted Class')
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "optimized_confusion_matrix.png"))
+    plt.savefig(os.path.join(save_dir, "unchained_confusion_matrix.png"))
     plt.close()
 
 def evaluate_on_test_set(model, test_loader, classes):
@@ -146,7 +145,7 @@ def evaluate_on_test_set(model, test_loader, classes):
             all_labels.extend(labels.cpu().numpy())
             
     plot_confusion_matrix(all_labels, all_preds, classes, PLOT_DIR)
-    print("\nOptimized Classification Report:")
+    print("\nUnchained Classification Report:")
     print(classification_report(all_labels, all_preds, target_names=classes))
 
 def main():
@@ -166,17 +165,14 @@ def main():
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
     
-    # Fixed line for PyTorch 2.2+
+    # Keeping the scheduler to slash LR on plateau, but removed Early Stopping
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
     
-    # --- NEW: Early Stopping Trackers ---
-    best_loss = float('inf')
     best_acc = 0.0
-    epochs_no_improve = 0
 
-    print(f"\n--- STARTING OPTIMIZED TRAINING ON {DEVICE} ---")
+    print(f"\n--- STARTING UNCHAINED TRAINING ON {DEVICE} ---")
     for epoch in range(NUM_EPOCHS):
         print(f'\nEpoch {epoch+1}/{NUM_EPOCHS}')
         
@@ -215,26 +211,13 @@ def main():
             print(f'{phase.capitalize()} Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}')
 
             if phase == 'val':
-                # Step the scheduler based on validation loss
+                # The putter stays in play.
                 scheduler.step(epoch_loss)
                 
-                # Check Early Stopping
-                if epoch_loss < best_loss:
-                    best_loss = epoch_loss
-                    epochs_no_improve = 0
-                    # Save model if it's the best accuracy we've seen
-                    if epoch_acc >= best_acc:
-                        best_acc = epoch_acc
-                        torch.save(model.state_dict(), MODEL_SAVE_PATH)
-                        print(f"*** New Best Model Saved (Val Loss: {epoch_loss:.4f}) ***")
-                else:
-                    epochs_no_improve += 1
-                    print(f"Early Stopping Counter: {epochs_no_improve}/{EARLY_STOPPING_PATIENCE}")
-
-        # Break out of the outer epoch loop if patience is exceeded
-        if epochs_no_improve >= EARLY_STOPPING_PATIENCE:
-            print(f"\n[!] Early stopping triggered. Validation loss hasn't improved in {EARLY_STOPPING_PATIENCE} epochs.")
-            break
+                if epoch_acc >= best_acc:
+                    best_acc = epoch_acc
+                    torch.save(model.state_dict(), MODEL_SAVE_PATH)
+                    print(f"*** New Best Model Saved (Val Acc: {epoch_acc:.4f}) ***")
 
     print("\nTraining complete. Generating plots...")
     plot_training_curves(history, PLOT_DIR)
