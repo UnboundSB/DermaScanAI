@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, Subset
 from sklearn.utils.class_weight import compute_class_weight
@@ -9,23 +10,24 @@ from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import copy
+import multiprocessing
 
 # --- CONFIGURATION ---
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
 DATA_DIR = os.path.join(BASE_DIR, "dataset_ready_for_training")
-MODEL_SAVE_PATH = os.path.join(BASE_DIR, "symptom_classifier_final.pth")
+MODEL_SAVE_PATH = os.path.join(BASE_DIR, "symptom_classifier_optimized.pth")
 PLOT_DIR = os.path.join(BASE_DIR, "Training_Plots")
 
 NUM_CLASSES = 5
 BATCH_SIZE = 32
-NUM_EPOCHS = 15
+NUM_EPOCHS = 20 # Bumped up to 20 because early stopping will catch it if it finishes early
 LEARNING_RATE = 1e-4
 TEST_SAMPLES_PER_CLASS = 200
+EARLY_STOPPING_PATIENCE = 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- FIXED: Moved DatasetWrapper to global scope so Windows can pickle it for multiprocessing ---
+# --- GLOBAL DATASET WRAPPER (Windows Multiprocessing Fix) ---
 class DatasetWrapper(torch.utils.data.Dataset):
     def __init__(self, subset, transform=None):
         self.subset = subset
@@ -69,11 +71,8 @@ def prepare_datasets():
     for c in range(NUM_CLASSES):
         class_idx = np.where(targets == c)[0]
         np.random.shuffle(class_idx)
-        
         test_indices.extend(class_idx[:TEST_SAMPLES_PER_CLASS])
         train_val_indices.extend(class_idx[TEST_SAMPLES_PER_CLASS:])
-        
-        print(f"Class '{full_dataset.classes[c]}': 200 Test | {len(class_idx) - TEST_SAMPLES_PER_CLASS} Train/Val")
 
     np.random.shuffle(train_val_indices)
     split_point = int(0.8 * len(train_val_indices))
@@ -88,7 +87,6 @@ def prepare_datasets():
     val_dataset = DatasetWrapper(val_data, transform=val_test_transforms)
     test_dataset = DatasetWrapper(test_data, transform=val_test_transforms)
 
-    # Added persistent_workers=True to speed up epochs on Windows
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, persistent_workers=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, persistent_workers=True)
@@ -118,9 +116,9 @@ def plot_training_curves(history, save_dir):
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "training_curves.png"))
+    plt.savefig(os.path.join(save_dir, "optimized_training_curves.png"))
     plt.close()
-    print(f"Saved Learning Curves to {save_dir}")
+    print(f"Saved Optimized Learning Curves to {save_dir}")
 
 def plot_confusion_matrix(y_true, y_pred, classes, save_dir):
     cm = confusion_matrix(y_true, y_pred)
@@ -130,9 +128,8 @@ def plot_confusion_matrix(y_true, y_pred, classes, save_dir):
     plt.ylabel('True Class')
     plt.xlabel('Predicted Class')
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
+    plt.savefig(os.path.join(save_dir, "optimized_confusion_matrix.png"))
     plt.close()
-    print(f"Saved Confusion Matrix to {save_dir}")
 
 def evaluate_on_test_set(model, test_loader, classes):
     print("\n--- RUNNING FINAL TEST ON BALANCED VAULT ---")
@@ -149,13 +146,10 @@ def evaluate_on_test_set(model, test_loader, classes):
             all_labels.extend(labels.cpu().numpy())
             
     plot_confusion_matrix(all_labels, all_preds, classes, PLOT_DIR)
-    
-    print("\nClassification Report:")
+    print("\nOptimized Classification Report:")
     print(classification_report(all_labels, all_preds, target_names=classes))
 
 def main():
-    # Fix for Windows multiprocessing spawn
-    import multiprocessing
     multiprocessing.freeze_support()
     
     train_loader, val_loader, test_loader, class_names, train_targets = prepare_datasets()
@@ -163,7 +157,6 @@ def main():
     print("\nCalculating CSL Weights for Training Set...")
     weights = compute_class_weight(class_weight='balanced', classes=np.unique(train_targets), y=train_targets)
     class_weights = torch.tensor(weights, dtype=torch.float32).to(DEVICE)
-    print(f"Weights applied: {np.round(weights, 2)}")
 
     print("\nLoading EfficientNet-B0...")
     model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
@@ -172,11 +165,18 @@ def main():
 
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+    
+    # --- NEW: The Putter ---
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2, verbose=True)
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
+    
+    # --- NEW: Early Stopping Trackers ---
+    best_loss = float('inf')
     best_acc = 0.0
+    epochs_no_improve = 0
 
-    print(f"\n--- STARTING TRAINING ON {DEVICE} ---")
+    print(f"\n--- STARTING OPTIMIZED TRAINING ON {DEVICE} ---")
     for epoch in range(NUM_EPOCHS):
         print(f'\nEpoch {epoch+1}/{NUM_EPOCHS}')
         
@@ -214,9 +214,27 @@ def main():
 
             print(f'{phase.capitalize()} Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}')
 
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
-                torch.save(model.state_dict(), MODEL_SAVE_PATH)
+            if phase == 'val':
+                # Step the scheduler based on validation loss
+                scheduler.step(epoch_loss)
+                
+                # Check Early Stopping
+                if epoch_loss < best_loss:
+                    best_loss = epoch_loss
+                    epochs_no_improve = 0
+                    # Save model if it's the best accuracy we've seen
+                    if epoch_acc >= best_acc:
+                        best_acc = epoch_acc
+                        torch.save(model.state_dict(), MODEL_SAVE_PATH)
+                        print(f"*** New Best Model Saved (Val Loss: {epoch_loss:.4f}) ***")
+                else:
+                    epochs_no_improve += 1
+                    print(f"Early Stopping Counter: {epochs_no_improve}/{EARLY_STOPPING_PATIENCE}")
+
+        # Break out of the outer epoch loop if patience is exceeded
+        if epochs_no_improve >= EARLY_STOPPING_PATIENCE:
+            print(f"\n[!] Early stopping triggered. Validation loss hasn't improved in {EARLY_STOPPING_PATIENCE} epochs.")
+            break
 
     print("\nTraining complete. Generating plots...")
     plot_training_curves(history, PLOT_DIR)
