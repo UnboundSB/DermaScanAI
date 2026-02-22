@@ -12,12 +12,9 @@ import multiprocessing
 from tqdm import tqdm
 
 # --- CONFIGURATION ---
-# GPS tracker to find the exact directory this script is currently inside
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
 DATA_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms\dataset_ready_for_training"
 
-# Forcing absolute paths so Python can't get lost
 MODELS_TO_TEST = [
     os.path.join(SCRIPT_DIR, "symptom_classifier_final1.pth"), 
     os.path.join(SCRIPT_DIR, "symptom_classifier_final2.pth"), 
@@ -85,7 +82,7 @@ def plot_individual_confusion_matrix(y_true, y_pred, classes, model_name):
 
 def evaluate_model(model_path, model, test_loader, classes):
     if not os.path.exists(model_path):
-        print(f"[!] Warning: {model_path} not found. Skipping.")
+        print(f"[!] Warning: {os.path.basename(model_path)} not found. Skipping.")
         return None, None
         
     model_name = os.path.basename(model_path).replace('.pth', '')
@@ -175,10 +172,14 @@ def main():
     df_acc = pd.DataFrame(all_accuracies)
     
     print("\n" + "="*80)
-    print(" THE ULTIMATE MODEL SHOWDOWN ")
     print("="*80)
-    print("\nOVERALL ACCURACY:")
+    print("\n--- OVERALL ACCURACY ---")
     print(df_acc.to_string(index=False))
+    
+    print("\n--- DETAILED F1-SCORE COMPARISON ---")
+    # Pivot the dataframe to give a clean terminal grid
+    pivot_df = df_metrics.pivot(index='Class', columns='Model', values='F1-Score')
+    print(pivot_df.to_string())
     print("="*80)
     
     generate_comparison_plots(df_metrics, df_acc)
