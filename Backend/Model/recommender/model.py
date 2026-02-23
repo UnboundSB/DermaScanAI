@@ -203,15 +203,16 @@ class SkincareRecommender:
         final_sentence = f"{intro}{joined_symptoms}.{transition}{treatment_text}{outro}"
         return final_sentence.capitalize()
 
-
 class ImprovementObserver:
     def __init__(self):
+        # 1. SUCCESS STATE
         self.success_intros = [
             "Incredible work! ", "Congratulations! ", "Excellent progress! ", 
             "I'm seeing fantastic results! ", "Your consistency is paying off! ",
             "The data doesn't lie—great job! "
         ]
         
+        # 2. PLATEAU STATE
         self.pivot_intros = [
             "It looks like the topical treatments haven't made a major dent over the last 10 days. ",
             "Skin can be stubborn, and it seems our initial routine hasn't induced a major difference yet. ",
@@ -221,39 +222,35 @@ class ImprovementObserver:
             "The progress is a little slower than anticipated. "
         ]
 
+        # 3. WORSENED STATE (SOS)
+        self.worsened_intros = [
+            "I am looking at the data, and it appears the symptoms have unfortunately intensified. ",
+            "Oh no, it seems the current routine is irritating your skin further. ",
+            "I'm concerned to see that the condition has actually worsened over the last 10 days. ",
+            "Stop your active treatments immediately. The scan shows increased irritation. ",
+            "It looks like your skin barrier is reacting poorly to the regimen. "
+        ]
+
         self.holistic_interventions = {
             "acne": [
                 "cutting whey protein and refined sugars from your diet",
                 "switching to a fresh silk pillowcase every two days",
                 "evaluating your gut health with a daily probiotic",
                 "tracking dairy intake, as it can heavily trigger hormonal breakouts",
-                "drinking spearmint tea daily to help balance androgens",
-                "changing your face towel every single day",
-                "wiping down your smartphone screen with alcohol daily",
-                "switching to a non-comedogenic, oil-free laundry detergent",
-                "actively managing stress levels, as cortisol spikes can trigger excess sebum",
-                "changing out of sweaty workout clothes and showering immediately"
+                "drinking spearmint tea daily to help balance androgens"
             ],
             "darkspots": [
                 "ensuring you are reapplying SPF 50 every exactly two hours",
                 "wearing a UPF 50 wide-brimmed hat to physically block UV rays",
                 "increasing your dietary intake of Vitamin C rich fruits",
                 "checking for underlying hormonal imbalances like Melasma",
-                "strictly avoiding any picking or friction on your face",
-                "taking an oral Polypodium Leucotomos antioxidant supplement",
-                "applying SPF even when indoors near windows",
-                "completely avoiding dry saunas or hot yoga, as ambient heat triggers melasma",
-                "avoiding harsh physical scrubs that cause micro-tears and hyperpigmentation"
+                "taking an oral Polypodium Leucotomos antioxidant supplement"
             ],
             "puffy_eyes": [
                 "sleeping with your head slightly elevated on an extra pillow",
                 "drastically reducing your evening sodium and salt intake",
                 "drinking an extra liter of water to flush out retained fluids",
                 "getting a strict 8 hours of sleep to reduce cortisol",
-                "treating seasonal allergies with an over-the-counter antihistamine",
-                "eliminating alcohol consumption at least 4 hours before bed",
-                "using an ice roller on your face for 5 minutes every morning",
-                "getting a blood test to check for underlying thyroid issues",
                 "reducing screen time an hour before bed to prevent eye strain and fluid pooling"
             ],
             "wrinkles": [
@@ -261,30 +258,76 @@ class ImprovementObserver:
                 "focusing on deep hydration by drinking 3 liters of water daily",
                 "avoiding sleeping on your side to prevent compression lines",
                 "incorporating bone broth or collagen supplements into your diet",
-                "managing daily stress to prevent premature cellular aging",
-                "investing in a silk sleep mask to prevent micro-creasing around the eyes",
-                "stopping all use of drinking straws to prevent perioral 'smoker's lines'",
-                "incorporating a high-quality Vitamin C and Vitamin E supplement into your diet",
-                "practicing facial massage to release chronic tension in the forehead and jaw",
-                "strictly eliminating smoking or vaping, which degrades collagen rapidly"
+                "managing daily stress to prevent premature cellular aging"
             ]
         }
 
-    def evaluate_10_day_trial(self, diagnoses: list, improvement_observed: bool) -> str:
+        # SOS Protocols for worsened conditions
+        self.sos_interventions = {
+            "acne": [
+                "stop all chemical exfoliants and harsh washes immediately",
+                "strip your routine down to just a gentle cleanser and a basic moisturizer",
+                "apply a soothing Cicaplast baume to repair your skin barrier",
+                "consult a dermatologist to prevent any potential deep scarring"
+            ],
+            "darkspots": [
+                "stop all brightening acids, as this might be irritation-induced hyperpigmentation",
+                "focus entirely on barrier repair and strict SPF application",
+                "apply a healing ointment to any raw or sensitive areas",
+                "see a professional to rule out a chemical burn or allergic reaction"
+            ],
+            "puffy_eyes": [
+                "stop all eye creams immediately, as this strongly indicates contact dermatitis or an allergy",
+                "take an over-the-counter antihistamine",
+                "apply a cool, damp cloth with absolutely no active ingredients",
+                "consult a doctor if the swelling persists or affects your vision"
+            ],
+            "wrinkles": [
+                "stop all retinoids and retinols immediately—your skin barrier is compromised",
+                "switch to a heavy, fragrance-free ceramide cream",
+                "avoid any physical rubbing or facial massages until the skin heals",
+                "use a gentle, milky cleanser instead of foaming washes"
+            ]
+        }
+
+    def evaluate_10_day_trial(self, diagnoses: list, status: str) -> str:
+        """
+        diagnoses: list of current symptoms, e.g., ["acne", "darkspots"]
+        status: "improved", "plateau", or "worsened"
+        """
         if "clear_face" in diagnoses:
             return "Your skin is remaining perfectly clear! Keep doing exactly what you are doing."
 
-        if improvement_observed:
+        symptom_str = " and ".join([s.replace("_", " ") for s in diagnoses])
+
+        # 1. THE SUCCESS PATH
+        if status == "improved":
             intro = random.choice(self.success_intros)
-            symptom_str = " and ".join([s.replace("_", " ") for s in diagnoses])
             return f"{intro}Over the past 10 days, your {symptom_str} has visibly reduced. The current treatment is working perfectly—stay consistent with this routine."
 
+        # 2. THE WORSENED (SOS) PATH
+        if status == "worsened":
+            intro = random.choice(self.worsened_intros)
+            sos_advice = []
+            for symptom in diagnoses:
+                if symptom in self.sos_interventions:
+                    # Grab 2 critical SOS steps
+                    advice_picks = random.sample(self.sos_interventions[symptom], 2)
+                    sos_advice.extend(advice_picks)
+            
+            # Format the emergency advice
+            if len(sos_advice) > 1:
+                joined_sos = ", and ".join(sos_advice[:-1]) + ", and " + sos_advice[-1]
+            else:
+                joined_sos = sos_advice[0]
+
+            return f"{intro}Please {joined_sos}."
+
+        # 3. THE PLATEAU PATH
         intro = random.choice(self.pivot_intros)
-        
         lifestyle_advice = []
         for symptom in diagnoses:
             if symptom in self.holistic_interventions:
-                # Give 1 or 2 holistic tips per symptom to build a full plan
                 advice_picks = random.sample(self.holistic_interventions[symptom], random.choice([1, 2]))
                 lifestyle_advice.extend(advice_picks)
 
@@ -297,31 +340,23 @@ class ImprovementObserver:
 
 # --- MAIN TEST HARNESS ---
 if __name__ == "__main__":
-    recommender = SkincareRecommender()
+    recommender = SkincareRecommender() # Assuming this is still in your file
     observer = ImprovementObserver()
     
     print("\n" + "="*50)
-    print(" 🏥 DERMASCAN AI: CLINICAL NLP TEST HARNESS 🏥 ")
+    print(" 🏥 DERMASCAN AI: 3-STATE FEEDBACK LOOP TEST 🏥 ")
     print("="*50)
 
-    # Test 1: Single Symptom
-    print("\n--- TEST 1: SINGLE SYMPTOM (SEVERE ACNE) ---")
-    print(recommender.generate_prescription([("acne", 94.5)]))
+    # Test 1: 10-Day Follow-Up (Success)
+    print("\n--- TEST 1: DAY 10 (IMPROVED ON PUFFY EYES) ---")
+    print(observer.evaluate_10_day_trial(["puffy_eyes"], status="improved"))
 
-    # Test 2: Multi-Symptom
-    print("\n--- TEST 2: MULTI-SYMPTOM (MODERATE WRINKLES & MINOR DARK SPOTS) ---")
-    print(recommender.generate_prescription([("wrinkles", 72.0), ("darkspots", 55.0)]))
+    # Test 2: 10-Day Follow-Up (Plateau)
+    print("\n--- TEST 2: DAY 10 (PLATEAU ON ACNE) ---")
+    print(observer.evaluate_10_day_trial(["acne"], status="plateau"))
 
-    # Test 3: Clear Face
-    print("\n--- TEST 3: CLEAR FACE ---")
-    print(recommender.generate_prescription([("clear_face", 99.0)]))
-
-    # Test 4: 10-Day Follow-Up (Success)
-    print("\n--- TEST 4: 10-DAY FOLLOW UP (SUCCESS ON PUFFY EYES) ---")
-    print(observer.evaluate_10_day_trial(["puffy_eyes"], improvement_observed=True))
-
-    # Test 5: 10-Day Follow-Up (Pivot/Failure)
-    print("\n--- TEST 5: 10-DAY FOLLOW UP (PIVOT ON SEVERE ACNE) ---")
-    print(observer.evaluate_10_day_trial(["acne"], improvement_observed=False))
+    # Test 3: 10-Day Follow-Up (Worsened SOS Protocol)
+    print("\n--- TEST 3: DAY 10 (WORSENED ON DARK SPOTS & WRINKLES) ---")
+    print(observer.evaluate_10_day_trial(["darkspots", "wrinkles"], status="worsened"))
     
     print("\n" + "="*50)
