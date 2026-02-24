@@ -1,162 +1,182 @@
 import os
-import cv2
-import math
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import time
+import copy
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+from torchvision import models, transforms
+from PIL import Image
 from tqdm import tqdm
-import concurrent.futures
 
 # --- CONFIGURATION ---
-BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
-RAW_DATA_DIR = os.path.join(BASE_DIR, "dataset_ready_for_training")
+UTKFACE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms\UTKFace_resized\UTKFace_resized"
 
-PROCESSED_DATA_DIR = os.path.join(BASE_DIR, "dataset_processed_224_png")
-EDA_PLOT_DIR = os.path.join(BASE_DIR, "Clinical_EDA_Reports")
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_SAVE_PATH = os.path.join(CURRENT_DIR, "binary_skin_tone_effnetb0.pth")
 
-TARGET_SIZE = (224, 224)
+BATCH_SIZE = 32
+EPOCHS = 8          # Binary tasks converge faster, 8 is plenty
+LEARNING_RATE = 0.001
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def calculate_ita_skin_tone(img_color):
-    """Calculates Individual Typology Angle (ITA) for clinical skin tone estimation."""
-    # Convert BGR to CIELAB color space
-    img_lab = cv2.cvtColor(img_color, cv2.COLOR_BGR2LAB)
-    L, a, b = cv2.split(img_lab)
-    
-    # OpenCV scales LAB differently, so we normalize back to standard CIELAB ranges
-    L_true = (L.astype(np.float32) * 100.0) / 255.0
-    b_true = b.astype(np.float32) - 128.0
-    
-    # We sample the central 50% of the image to target the facial skin, ignoring backgrounds
-    h, w = L_true.shape
-    c_h1, c_h2 = int(h * 0.25), int(h * 0.75)
-    c_w1, c_w2 = int(w * 0.25), int(w * 0.75)
-    
-    center_L = np.mean(L_true[c_h1:c_h2, c_w1:c_w2])
-    center_b = np.mean(b_true[c_h1:c_h2, c_w1:c_w2])
-    
-    # Prevent division by zero
-    b_val = center_b if center_b != 0 else 0.001
-    ita_score = math.atan((center_L - 50.0) / b_val) * (180.0 / math.pi)
-    
-    return ita_score
+# --- CUSTOM BINARY DATASET LOADER ---
+class UTKFaceBinaryDataset(Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.image_paths = []
+        self.labels = []
+        
+        print(f"Scanning UTKFace for Binary classification: {root_dir}...")
+        for filename in os.listdir(root_dir):
+            if filename.lower().endswith(('.jpg', '.png', '.jpeg')):
+                parts = filename.split('_')
+                if len(parts) >= 3:
+                    try:
+                        race = int(parts[2])
+                        # Map to Binary targets:
+                        # 0 (White) and 2 (Asian) -> 0 (Light Skin)
+                        if race in [0, 2]:
+                            self.image_paths.append(os.path.join(root_dir, filename))
+                            self.labels.append(0.0) # Float required for BCE loss
+                        # 1 (Black) and 3 (Indian) -> 1 (Dark Skin)
+                        elif race in [1, 3]:
+                            self.image_paths.append(os.path.join(root_dir, filename))
+                            self.labels.append(1.0)
+                        # We ignore 4 (Other) to keep the contrast pure
+                    except ValueError:
+                        continue 
+                        
+        print(f"Found {len(self.image_paths)} valid images for Binary training.")
 
-def process_and_analyze_image(src_path, dest_dir, class_name):
-    try:
-        img_color = cv2.imread(src_path)
-        if img_color is None:
-            return None
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.image_paths[idx]
+        image = Image.open(img_path).convert('RGB')
+        label = self.labels[idx]
+        
+        if self.transform:
+            image = self.transform(image)
             
-        img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-        
-        # --- 1. CLINICAL METRIC EXTRACTION ---
-        h, w = img_gray.shape
-        brightness = np.mean(img_gray)
-        contrast = np.std(img_gray)
-        sharpness = cv2.Laplacian(img_gray, cv2.CV_64F).var()
-        skin_tone_ita = calculate_ita_skin_tone(img_color)
-        
-        # --- 2. PIPELINE PREPROCESSING ---
-        img_resized = cv2.resize(img_color, TARGET_SIZE, interpolation=cv2.INTER_AREA)
-        
-        filename = os.path.splitext(os.path.basename(src_path))[0]
-        dest_filename = f"{filename}.png"
-        dest_path = os.path.join(dest_dir, class_name, dest_filename)
-        
-        cv2.imwrite(dest_path, img_resized)
+        return image, label
 
-        return {
-            "Filename": dest_filename,
-            "Class": class_name,
-            "Brightness": brightness,
-            "Contrast": contrast,
-            "Sharpness": sharpness,
-            "Skin_Tone_ITA": skin_tone_ita
-        }
-    except Exception as e:
-        return None
-
-def main():
-    print("--- INITIALIZING CLINICAL EDA & PREPROCESSING PIPELINE ---")
+def train_model():
+    print(f"--- STARTING BINARY EFFNET-B0 ON {DEVICE} ---")
     
-    if not os.path.exists(RAW_DATA_DIR):
-        print(f"[!] Critical Error: Raw data directory not found at {RAW_DATA_DIR}")
+    # 1. Transforms
+    data_transforms = {
+        'train': transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(brightness=0.1, contrast=0.1), 
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ]),
+        'val': transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ]),
+    }
+
+    # 2. Load Dataset
+    full_dataset = UTKFaceBinaryDataset(UTKFACE_DIR, transform=data_transforms['train'])
+    
+    if len(full_dataset) == 0:
+        print("[Error] No images found.")
         return
-        
-    os.makedirs(EDA_PLOT_DIR, exist_ok=True)
-    os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
+
+    # Split 80/20
+    train_size = int(0.8 * len(full_dataset))
+    val_size = len(full_dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(full_dataset, [train_size, val_size])
+    val_dataset.dataset.transform = data_transforms['val'] 
+
+    # num_workers=0 avoids the Windows multiprocessing hang
+    dataloaders = {
+        'train': DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True),
+        'val': DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+    }
+    dataset_sizes = {'train': train_size, 'val': val_size}
+
+    # 3. Model Setup (EfficientNet-B0)
+    model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
     
-    classes = [d for d in os.listdir(RAW_DATA_DIR) if os.path.isdir(os.path.join(RAW_DATA_DIR, d))]
-    
-    for cls in classes:
-        os.makedirs(os.path.join(PROCESSED_DATA_DIR, cls), exist_ok=True)
-        
-    image_tasks = []
-    for cls in classes:
-        cls_dir = os.path.join(RAW_DATA_DIR, cls)
-        for f in os.listdir(cls_dir):
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                src_path = os.path.join(cls_dir, f)
-                image_tasks.append((src_path, PROCESSED_DATA_DIR, cls))
+    # EXACTLY 1 OUTPUT NODE for Sigmoid binary classification
+    num_ftrs = model.classifier[1].in_features
+    model.classifier[1] = nn.Linear(num_ftrs, 1) 
+    model = model.to(DEVICE)
+
+    # 4. Optimizer & Loss (BCEWithLogits combines Sigmoid + CrossEntropy)
+    criterion = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+
+    # 5. Training Loop
+    best_model_wts = copy.deepcopy(model.state_dict())
+    best_acc = 0.0
+
+    for epoch in range(EPOCHS):
+        print(f'\nEpoch {epoch+1}/{EPOCHS}')
+        print('-' * 10)
+
+        for phase in ['train', 'val']:
+            if phase == 'train':
+                model.train()
+            else:
+                model.eval()
+
+            running_loss = 0.0
+            running_corrects = 0
+
+            loop = tqdm(dataloaders[phase], desc=f"{phase.capitalize()}")
+            for inputs, labels in loop:
+                inputs = inputs.to(DEVICE)
                 
-    print(f"Scanning {len(image_tasks)} images for topological and chromatic metrics...")
-    
-    results = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = {executor.submit(process_and_analyze_image, task[0], task[1], task[2]): task for task in image_tasks}
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Extracting Metrics"):
-            res = future.result()
-            if res:
-                results.append(res)
+                # Reshape labels to match output shape [batch_size, 1]
+                labels = labels.view(-1, 1).to(DEVICE)
+
+                optimizer.zero_grad()
+
+                with torch.set_grad_enabled(phase == 'train'):
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
+
+                # Calculate Accuracy. 
+                # Since we use Logits, an output > 0 means the Sigmoid probability is > 0.5.
+                preds = (outputs > 0.0).float()
                 
-    df = pd.DataFrame(results)
-    
-    # --- TERMINAL REPORT ---
-    print("\n" + "="*80)
-    print(" CLINICAL DATASET HEALTH REPORT ")
-    print("="*80)
-    
-    print("\n--- CLASS DISTRIBUTION ---")
-    counts = df['Class'].value_counts()
-    for cls, count in counts.items():
-        print(f" {cls}: {count} images")
-        
-    print("\n--- CLINICAL AVERAGES PER SYMPTOM CLASS ---")
-    metrics_summary = df.groupby('Class')[['Skin_Tone_ITA', 'Brightness', 'Contrast', 'Sharpness']].mean()
-    print(metrics_summary.round(2))
+                running_loss += loss.item() * inputs.size(0)
+                running_corrects += torch.sum(preds == labels)
+                
+                loop.set_postfix(loss=loss.item())
 
-    # --- PLOT GENERATION ---
-    print("\nRendering clinical distribution maps...")
-    sns.set_theme(style="whitegrid")
-    
-    # 1. Skin Tone (ITA) Distribution
-    plt.figure(figsize=(10, 6))
-    sns.kdeplot(data=df, x='Skin_Tone_ITA', hue='Class', fill=True, common_norm=False, palette='Set2')
-    plt.title('Clinical Skin Tone Distribution (ITA Angle)', fontweight='bold')
-    plt.xlabel('ITA Score (Higher = Lighter Skin, Lower = Darker Skin)')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "1_skin_tone_distribution.png"))
-    plt.close()
+            if phase == 'train':
+                scheduler.step()
 
-    # 2. Brightness vs Contrast Map
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(data=df, x='Brightness', y='Contrast', hue='Class', alpha=0.5, palette='tab10')
-    plt.title('Topological Lighting Map: Brightness vs Contrast', fontweight='bold')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "2_lighting_map.png"))
-    plt.close()
+            epoch_loss = running_loss / dataset_sizes[phase]
+            epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
-    # 3. Sharpness Boxplot
-    plt.figure(figsize=(12, 6))
-    sns.boxplot(data=df, x='Class', y='Sharpness', showfliers=False, palette='mako')
-    plt.title('Texture Bias Check: Sharpness / Blur Variance', fontweight='bold')
-    plt.ylabel('Laplacian Variance (Sharpness)')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "3_sharpness_bias.png"))
-    plt.close()
-    
-    csv_path = os.path.join(EDA_PLOT_DIR, "clinical_eda_metrics.csv")
-    df.to_csv(csv_path, index=False)
-    
-    print("="*80)
-    print(f"Pipeline Complete. PNGs standardardized. Clinical plots saved to: {EDA_PLOT_DIR}")
+            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+
+            # Save the best model based on validation accuracy
+            if phase == 'val' and epoch_acc > best_acc:
+                best_acc = epoch_acc
+                best_model_wts = copy.deepcopy(model.state_dict())
+
+    print(f'\nTraining complete! Best Val Acc: {best_acc:4f}')
+
+    # 6. Save Model
+    model.load_state_dict(best_model_wts)
+    torch.save(model.state_dict(), MODEL_SAVE_PATH)
+    print(f"Binary model successfully saved to: {MODEL_SAVE_PATH}")
 
 if __name__ == "__main__":
-    main()
+    train_model()
