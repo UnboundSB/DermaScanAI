@@ -1,89 +1,117 @@
 import os
-import cv2
 import torch
 import torch.nn as nn
-import numpy as np
-from PIL import Image
 from torchvision import models, transforms
+from PIL import Image
+from sklearn.metrics import confusion_matrix, classification_report
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm
 
 # --- CONFIGURATION ---
+BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
+DATA_DIR = os.path.join(BASE_DIR, "dataset_augmented_224_png")
 MODEL_PATH = r"D:\Projects\DermaScanAI\Backend\Model\classifier\symptom_classifier_final4.pth"
-IMAGE_PATH = r"C:\Users\dell\Pictures\Camera Roll\WIN_20260206_11_21_11_Pro.jpg"
+RESULTS_DIR = os.path.join(BASE_DIR, "Isolated_Testing_Results")
 
 CLASSES = ['acne', 'clear_face', 'darkspots', 'puffy_eyes', 'wrinkles']
+NUM_CLASSES = len(CLASSES)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def apply_clinical_normalization(img_bgr):
-    """Applies the exact CLAHE normalization used during training."""
-    lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    cl = clahe.apply(l)
-    limg = cv2.merge((cl, a, b))
-    return cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+def plot_matrix(y_true, y_pred, title, filename):
+    """Generates a locked 5x5 confusion matrix to map symptom leakage."""
+    # Enforce all 5 labels so the matrix doesn't collapse on isolated classes
+    cm = confusion_matrix(y_true, y_pred, labels=range(NUM_CLASSES))
+    
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=CLASSES, yticklabels=CLASSES)
+    plt.title(title, fontweight='bold', fontsize=14)
+    plt.ylabel('Ground Truth (Actual Folder)', fontsize=12)
+    plt.xlabel('AI Prediction', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(RESULTS_DIR, filename), dpi=300)
+    plt.close()
 
 def main():
-    print(f"--- INITIATING LIVE DIAGNOSTIC ON {DEVICE.type.upper()} ---")
-
-    if not os.path.exists(IMAGE_PATH):
-        print(f"[!] Error: Image not found at {IMAGE_PATH}")
+    print(f"--- INITIATING CLASS-ISOLATED AUDIT ON {DEVICE.type.upper()} ---")
+    
+    if not os.path.exists(DATA_DIR):
+        print(f"[!] Error: Data directory not found at {DATA_DIR}")
         return
 
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+
     # 1. LOAD THE BRAIN
+    print("Loading symptom_classifier_final4.pth...")
     model = models.efficientnet_b0(weights=None)
-    model.classifier[1] = nn.Linear(model.classifier[1].in_features, len(CLASSES))
+    model.classifier[1] = nn.Linear(model.classifier[1].in_features, NUM_CLASSES)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     model = model.to(DEVICE)
     model.eval()
 
-    # 2. PRE-PROCESS THE CAPTURE
-    raw_img = cv2.imread(IMAGE_PATH)
-    if raw_img is None:
-        print("[!] Error: Could not read image file.")
-        return
-
-    # Step A: Apply CLAHE (Clinical Standard)
-    normalized_img = apply_clinical_normalization(raw_img)
-    
-    # Step B: Convert to PIL and apply Grayscale + Tensor transforms
-    # We use 3 output channels to satisfy EfficientNet's expected input shape
+    # 2. PRE-PROCESS PIPELINE
     preprocess = transforms.Compose([
-        transforms.ToPILImage(),
         transforms.Resize((224, 224)),
         transforms.Grayscale(num_output_channels=3),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
+
+    global_true = []
+    global_pred = []
+
+    # 3. ISOLATED FOLDER CRAWL
+    for class_idx, class_name in enumerate(CLASSES):
+        folder_path = os.path.join(DATA_DIR, class_name)
+        if not os.path.isdir(folder_path):
+            print(f"[!] Skipping missing folder: {class_name}")
+            continue
+
+        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        print(f"\nScanning isolated class: [{class_name.upper()}] - {len(image_files)} images")
+
+        class_true = []
+        class_pred = []
+
+        with torch.no_grad():
+            for img_name in tqdm(image_files, desc=f"Evaluating {class_name}"):
+                img_path = os.path.join(folder_path, img_name)
+                try:
+                    img = Image.open(img_path).convert("RGB")
+                    input_tensor = preprocess(img).unsqueeze(0).to(DEVICE)
+                    
+                    outputs = model(input_tensor)
+                    _, predicted_idx = torch.max(outputs, 1)
+                    
+                    pred_val = predicted_idx.item()
+                    
+                    class_true.append(class_idx)
+                    class_pred.append(pred_val)
+                    
+                    global_true.append(class_idx)
+                    global_pred.append(pred_val)
+                except Exception:
+                    continue
+        
+        # Plot the micro-matrix for this specific folder
+        matrix_title = f"Isolated Leakage Map: {class_name.upper()}"
+        matrix_filename = f"conf_matrix_{class_name}.png"
+        plot_matrix(class_true, class_pred, matrix_title, matrix_filename)
+        print(f"[*] Saved isolated micro-matrix: {matrix_filename}")
+
+    # 4. THE FINAL VERDICT
+    print("\n" + "="*80)
+    print(" GENERATING GLOBAL AUDIT REPORT ")
+    print("="*80)
     
-    input_tensor = preprocess(normalized_img).unsqueeze(0).to(DEVICE)
+    plot_matrix(global_true, global_pred, "Final Master Confusion Matrix (All Classes)", "finalconf_matrix.png")
+    print(f"[*] Saved master matrix: finalconf_matrix.png")
 
-    # 3. RUN INFERENCE
-    with torch.no_grad():
-        outputs = model(input_tensor)
-        probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
-        confidence, predicted_idx = torch.max(probabilities, 0)
-
-    # 4. OUTPUT RESULTS
-    predicted_class = CLASSES[predicted_idx.item()]
-    conf_score = confidence.item() * 100
-
-    print("\n" + "="*40)
-    print(f" DIAGNOSTIC RESULT ")
-    print("="*40)
-    print(f" IMAGE: {os.path.basename(IMAGE_PATH)}")
-    print(f" PREDICTION: {predicted_class.upper()}")
-    print(f" CONFIDENCE: {conf_score:.2f}%")
-    print("="*40)
-
-    # Display the normalized image for visual verification
-    display_img = cv2.resize(normalized_img, (600, 600))
-    cv2.putText(display_img, f"{predicted_class} ({conf_score:.1f}%)", (30, 50), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    
-    cv2.imshow("DermaScanAI - Clinical View", display_img)
-    print("\nPress any key on the image window to close.")
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    print("\n--- FINAL CLASSIFICATION REPORT ---")
+    print(classification_report(global_true, global_pred, target_names=CLASSES))
+    print(f"\nAudit Complete. All diagnostic reports are locked in: {RESULTS_DIR}")
 
 if __name__ == "__main__":
     main()
