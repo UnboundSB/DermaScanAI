@@ -10,8 +10,8 @@ import concurrent.futures
 
 # --- CONFIGURATION ---
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
-PROCESSED_DATA_DIR = os.path.join(BASE_DIR, "dataset_processed_224_png")
-EDA_PLOT_DIR = os.path.join(BASE_DIR, "Final_Processed_EDA_Reports")
+AUGMENTED_DATA_DIR = os.path.join(BASE_DIR, "dataset_augmented_224_png")
+EDA_PLOT_DIR = os.path.join(BASE_DIR, "Augmented_EDA_Reports")
 
 def calculate_ita_skin_tone(img_lab):
     """Calculates Individual Typology Angle (ITA) from LAB color space."""
@@ -57,24 +57,24 @@ def analyze_processed_image(file_path, class_name):
         return None
 
 def main():
-    print("--- INITIALIZING FINAL PROCESSED DATASET AUDIT ---")
+    print("--- INITIALIZING FINAL AUGMENTED DATASET AUDIT ---")
     
-    if not os.path.exists(PROCESSED_DATA_DIR):
-        print(f"[!] Critical Error: Processed data directory not found at {PROCESSED_DATA_DIR}")
+    if not os.path.exists(AUGMENTED_DATA_DIR):
+        print(f"[!] Critical Error: Augmented data directory not found at {AUGMENTED_DATA_DIR}")
         return
         
     os.makedirs(EDA_PLOT_DIR, exist_ok=True)
     
-    classes = [d for d in os.listdir(PROCESSED_DATA_DIR) if os.path.isdir(os.path.join(PROCESSED_DATA_DIR, d))]
+    classes = [d for d in os.listdir(AUGMENTED_DATA_DIR) if os.path.isdir(os.path.join(AUGMENTED_DATA_DIR, d))]
     
     image_paths = []
     for cls in classes:
-        cls_dir = os.path.join(PROCESSED_DATA_DIR, cls)
+        cls_dir = os.path.join(AUGMENTED_DATA_DIR, cls)
         for f in os.listdir(cls_dir):
             if f.lower().endswith('.png'):
                 image_paths.append((os.path.join(cls_dir, f), cls))
                 
-    print(f"Found {len(image_paths)} processed PNG images. Extracting final metrics...")
+    print(f"Found {len(image_paths)} augmented PNG images. Extracting final metrics...")
     
     results = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -88,7 +88,7 @@ def main():
     
     # --- TERMINAL REPORT ---
     print("\n" + "="*80)
-    print(" FINAL PROCESSED DATASET HEALTH REPORT ")
+    print(" AUGMENTED DATASET HEALTH REPORT ")
     print("="*80)
     
     print("\n--- FINAL CLASS DISTRIBUTION ---")
@@ -96,45 +96,45 @@ def main():
     for cls, count in counts.items():
         print(f" {cls}: {count} images")
         
-    print("\n--- FINAL CLINICAL AVERAGES PER CLASS ---")
+    print("\n--- CLINICAL AVERAGES PER CLASS (POST-AUGMENTATION) ---")
     metrics_summary = df.groupby('Class')[['Skin_Tone_ITA', 'Brightness', 'Contrast', 'Sharpness']].mean()
     print(metrics_summary.round(2))
 
     # --- PLOT GENERATION ---
-    print("\nRendering final clinical distribution maps...")
+    print("\nRendering augmented clinical distribution maps...")
     sns.set_theme(style="whitegrid")
     
     # 1. Class Distribution
     plt.figure(figsize=(10, 6))
-    sns.countplot(data=df, x='Class', order=df['Class'].value_counts().index, palette='viridis')
-    plt.title('Final Processed Images per Symptom Class', fontweight='bold')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "1_final_class_distribution.png"))
+    sns.countplot(data=df, x='Class', hue='Class', order=df['Class'].value_counts().index, palette='viridis', legend=False)
+    plt.title('Augmented Images per Symptom Class', fontweight='bold')
+    plt.savefig(os.path.join(EDA_PLOT_DIR, "1_augmented_class_distribution.png"))
     plt.close()
 
     # 2. Skin Tone (ITA) Distribution
     plt.figure(figsize=(10, 6))
     sns.kdeplot(data=df, x='Skin_Tone_ITA', hue='Class', fill=True, common_norm=False, palette='Set2')
-    plt.title('Final Skin Tone Distribution (ITA Angle)', fontweight='bold')
+    plt.title('Augmented Skin Tone Distribution (ITA Angle)', fontweight='bold')
     plt.xlabel('ITA Score (Higher = Lighter Skin, Lower = Darker Skin)')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "2_final_skin_tone.png"))
+    plt.savefig(os.path.join(EDA_PLOT_DIR, "2_augmented_skin_tone.png"))
     plt.close()
 
     # 3. Brightness vs Contrast Map
     plt.figure(figsize=(10, 8))
     sns.scatterplot(data=df, x='Brightness', y='Contrast', hue='Class', alpha=0.5, palette='tab10')
-    plt.title('Final Lighting Map: Brightness vs Contrast', fontweight='bold')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "3_final_lighting_map.png"))
+    plt.title('Augmented Lighting Map: Brightness vs Contrast', fontweight='bold')
+    plt.savefig(os.path.join(EDA_PLOT_DIR, "3_augmented_lighting_map.png"))
     plt.close()
 
     # 4. Sharpness Boxplot
     plt.figure(figsize=(12, 6))
-    sns.boxplot(data=df, x='Class', y='Sharpness', showfliers=False, palette='mako')
-    plt.title('Final Texture Variance (Sharpness)', fontweight='bold')
+    sns.boxplot(data=df, x='Class', y='Sharpness', hue='Class', showfliers=False, palette='mako', legend=False)
+    plt.title('Augmented Texture Variance (Sharpness)', fontweight='bold')
     plt.ylabel('Laplacian Variance')
-    plt.savefig(os.path.join(EDA_PLOT_DIR, "4_final_sharpness.png"))
+    plt.savefig(os.path.join(EDA_PLOT_DIR, "4_augmented_sharpness.png"))
     plt.close()
     
-    csv_path = os.path.join(EDA_PLOT_DIR, "final_processed_metrics.csv")
+    csv_path = os.path.join(EDA_PLOT_DIR, "augmented_metrics.csv")
     df.to_csv(csv_path, index=False)
     
     print("="*80)
