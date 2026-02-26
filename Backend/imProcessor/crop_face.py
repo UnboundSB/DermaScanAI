@@ -39,7 +39,7 @@ def crop_primary_face(image_source, detector):
     
     if not faces:
         print("[!] No face detected by the SSDLite model.")
-        return None
+        raise FaceNotFoundError()
 
     # 3. Isolate the most confident face
     best_face = sorted(faces, key=lambda f: f['score'], reverse=True)[0]
