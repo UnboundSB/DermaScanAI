@@ -1,129 +1,132 @@
-import sys
 import os
+import sys
 import cv2
 import torch
 import numpy as np
+import logging
+from typing import Union, Dict, Any
 
-# --- DYNAMIC PATH INJECTION ---
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(message)s")
+logger = logging.getLogger("DermaScan.Predictor")
+
+# --- Dynamic Path Injection ---
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-# --- MODULE IMPORTS ---
 from Backend.utils.config import DirectoryLocator
 from Backend.imProcessor.crop_face import crop_primary_face
 from Backend.imProcessor.resize import process_and_resize
-from Backend.imProcessor.grayscale import convert_to_clinical_grayscale
-
-# Note: Adjust these imports to match the exact file structures inside your Model folders
 from Backend.Model.detection.detector import FaceDetector
-from Backend.Model.quality.model import IQAModel  # <-- Corrected class name
-from Backend.Model.classifier.model import SymptomClassifier 
+from Backend.Model.quality.model import IQAModel
+from Backend.Model.classifier.model import SymptomClassifier
 
-# --- CUSTOM EXCEPTIONS ---
-class LowQualityError(Exception):
-    """Raised when an image fails the IQA gatekeeper threshold."""
-    pass
+# Hardcoded fallback — used only if DirectoryLocator path is missing/wrong
+_CLASSIFIER_WEIGHTS_FALLBACK = r"D:\Projects\DermaScanAI\Backend\Model\classifier\symptom_classifier_phased.pth"
+
+
+def _resolve_classifier_path() -> str:
+    """
+    Returns the classifier weights path. 
+    Prefers DirectoryLocator, falls back to the hardcoded path with a warning.
+    """
+    try:
+        path = DirectoryLocator.SYMPTOM_CLASSIFIER_WEIGHTS
+        if os.path.exists(path):
+            return path
+        logger.warning(
+            f"DirectoryLocator path not found: '{path}'. "
+            f"Falling back to hardcoded path."
+        )
+    except AttributeError:
+        logger.warning("DirectoryLocator.SYMPTOM_CLASSIFIER_WEIGHTS not defined. Using fallback.")
+
+    if not os.path.exists(_CLASSIFIER_WEIGHTS_FALLBACK):
+        raise FileNotFoundError(
+            f"Classifier weights not found at fallback path: {_CLASSIFIER_WEIGHTS_FALLBACK}\n"
+            f"Please retrain the model or update DirectoryLocator.SYMPTOM_CLASSIFIER_WEIGHTS."
+        )
+    return _CLASSIFIER_WEIGHTS_FALLBACK
+
 
 class ClinicalPredictor:
     def __init__(self):
-        print("--- BOOTING CLINICAL INFERENCE PIPELINE ---")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        # 1. Load Configurations
-        self.face_weights = DirectoryLocator.FACE_DETECTOR_WEIGHTS
-        self.iqa_weights = DirectoryLocator.IQA_GATEKEEPER_WEIGHTS
-        self.classifier_weights = DirectoryLocator.SYMPTOM_CLASSIFIER_WEIGHTS
+        logger.info(f"Running on device: {self.device}")
 
-        # 2. Spin up the Engines
-        print("[*] Initializing MobileNet Face Detector...")
-        self.detector = FaceDetector(model_path=self.face_weights, confidence_threshold=0.6, device=self.device.type)
-        
-        print("[*] Initializing IQA Gatekeeper...")
-        self.iqa_model = IQAModel(model_path=self.iqa_weights, device=self.device) # <-- Corrected instantiation
-        
-        print("[*] Initializing Final4 Symptom Classifier...")
-        self.classifier = SymptomClassifier(model_path=self.classifier_weights, device=self.device)
-        
-        self.classes = ['acne', 'clear_face', 'darkspots', 'puffy_eyes', 'wrinkles']
-        print("--- ALL ENGINES ONLINE ---")
+        self.detector  = FaceDetector(
+            model_path=DirectoryLocator.FACE_DETECTOR_WEIGHTS,
+            device=self.device.type
+        )
+        self.iqa_model = IQAModel(
+            model_path=DirectoryLocator.IQA_GATEKEEPER_WEIGHTS,
+            device=self.device
+        )
+        self.classifier = SymptomClassifier(
+            model_path=_resolve_classifier_path(),
+            device=self.device
+        )
 
-    def predict(self, image_source):
-        """
-        Executes the full end-to-end diagnostic pipeline.
-        """
-        # Step 0: Load Image
-        if isinstance(image_source, str):
-            img_bgr = cv2.imread(image_source)
+        logger.info("Pipeline Fully Operational.")
+
+    def predict(self, image_source: Union[str, np.ndarray]) -> Dict[str, Any]:
+        try:
+            # --- 1. Load ---
+            if isinstance(image_source, str):
+                if not os.path.exists(image_source):
+                    return {"status": "error", "message": f"File not found: {image_source}"}
+                img_bgr = cv2.imread(image_source)
+            else:
+                img_bgr = image_source
+
             if img_bgr is None:
-                raise ValueError(f"[!] Error: Could not load image from {image_source}")
-        else:
-            img_bgr = image_source
+                return {"status": "error", "message": "Failed to decode image (cv2.imread returned None)"}
 
-        # Step 1: Isolate Target (Cropper)
-        cropped_face = crop_primary_face(img_bgr, self.detector)
-        if cropped_face is None:
-            return {"error": "No human face detected."}
+            # --- 2. Detect & Crop Face ---
+            cropped_face = crop_primary_face(img_bgr, self.detector)
+            if cropped_face is None:
+                return {"status": "error", "message": "No face detected in the image"}
 
-        # Step 2: Clinical Resizing (224x224 + PNG lock)
-        resized_face = process_and_resize(cropped_face, target_size=(224, 224))
+            # --- 3. Standardize to 224x224 ---
+            resized_face = process_and_resize(cropped_face, target_size=(224, 224))
 
-        # Step 3: IQA Gatekeeper Check
-        # Ensure 'evaluate' matches the actual method name in your IQAModel class
-        quality_score = self.iqa_model.evaluate(resized_face)
-        print(f"[*] IQA Scan Complete. Quality Score: {quality_score:.1f}/10")
-        
-        if quality_score < 5.0:
-            raise LowQualityError(f"Image quality ({quality_score:.1f}/10) is below the clinical threshold of 5.0. Please capture a clearer photo.")
+            # --- 4. Quality Gate ---
+            quality_score = self.iqa_model.evaluate(resized_face) * 10
+            logger.info(f"IQA Score: {quality_score:.2f}/10")
+            if quality_score < 4.0:
+                return {
+                    "status": "rejected",
+                    "reason": f"Image quality too low ({quality_score:.2f}/10). Please use a clearer photo."
+                }
 
-        # Step 4: Topological Filter (Grayscale)
-        clinical_tensor_input = convert_to_clinical_grayscale(resized_face)
+            # --- 5. Classify ---
+            # SymptomClassifier._sanitize_input handles BGR→RGB and dtype internally
+            confidences = self.classifier.predict(resized_face)
 
-        # Step 5: Diagnostic Inference
-        # Ensure 'predict' matches the actual method name in your SymptomClassifier class
-        confidences = self.classifier.predict(clinical_tensor_input)
+            # --- 6. Build Result ---
+            top_class = max(confidences, key=confidences.get)
+            logger.info(f"Prediction: {top_class} ({confidences[top_class]:.2f}%)")
 
-        # Step 6: The 5% Margin Logic
-        top_class = max(confidences, key=confidences.get)
-        max_score = confidences[top_class]
+            return {
+                "status":           "success",
+                "quality_score":    round(quality_score, 2),
+                "primary_diagnosis": top_class,
+                "confidence":       round(confidences[top_class], 2),
+                "all_confidences":  confidences
+            }
 
-        threshold = max_score - 5.0
-        
-        final_results = {
-            symptom: score 
-            for symptom, score in confidences.items() 
-            if score >= threshold
-        }
+        except Exception as e:
+            logger.exception(f"Pipeline Error: {e}")
+            return {"status": "error", "message": str(e)}
 
-        sorted_results = dict(sorted(final_results.items(), key=lambda item: item[1], reverse=True))
 
-        return {
-            "status": "success",
-            "quality_score": quality_score,
-            "primary_diagnosis": top_class,
-            "margin_results": sorted_results
-        }
-
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    # --- PIPELINE TEST RUN ---
-    TEST_IMG = r"C:\Users\dell\Pictures\Camera Roll\WIN_20260224_22_18_22_Pro.jpg"
-    
-    try:
-        pipeline = ClinicalPredictor()
-        print(f"\nScanning: {TEST_IMG}")
-        
-        report = pipeline.predict(TEST_IMG)
-        
-        print("\n" + "="*40)
-        print(" FINAL DIAGNOSTIC REPORT ")
-        print("="*40)
-        print(f"Quality Score: {report['quality_score']:.1f}/10")
-        print("\nDetected Symptoms (Within 5% Margin):")
-        for symptom, conf in report['margin_results'].items():
-            print(f" - {symptom.upper()}: {conf:.2f}%")
-        print("="*40)
-        
-    except LowQualityError as lqe:
-        print(f"\n[PIPELINE HALTED] {lqe}")
-    except Exception as e:
-        print(f"\n[CRITICAL ERROR] {e}")
+    TEST_IMAGE = r"C:\Users\dell\Pictures\Camera Roll\WhatsApp Image 2026-02-27 at 2.36.03 PM.jpeg"
+
+    pipeline = ClinicalPredictor()
+    report   = pipeline.predict(TEST_IMAGE)
+
+    print("\n--- PREDICTION REPORT ---")
+    for k, v in report.items():
+        print(f"  {k:<22}: {v}")
