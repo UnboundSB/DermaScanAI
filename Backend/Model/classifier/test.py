@@ -10,10 +10,13 @@ import seaborn as sns
 from tqdm import tqdm
 
 # --- CONFIGURATION ---
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = r"D:\Projects\DermaScanAI\datasets\skin_ageing_symptoms"
 DATA_DIR = os.path.join(BASE_DIR, "dataset_augmented_224_png")
 MODEL_PATH = r"D:\Projects\DermaScanAI\Backend\Model\classifier\symptom_classifier_final4.pth"
-RESULTS_DIR = os.path.join(BASE_DIR, "Isolated_Testing_Results")
+
+# UPDATED: Routing all plots to ./plots/model4
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "plots", "model4")
 
 CLASSES = ['acne', 'clear_face', 'darkspots', 'puffy_eyes', 'wrinkles']
 NUM_CLASSES = len(CLASSES)
@@ -41,10 +44,11 @@ def main():
         print(f"[!] Error: Data directory not found at {DATA_DIR}")
         return
 
+    # Automatically generate the ./plots/model4 directory if it doesn't exist
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     # 1. LOAD THE BRAIN
-    print("Loading symptom_classifier_final4.pth...")
+    print(f"Loading {os.path.basename(MODEL_PATH)}...")
     model = models.efficientnet_b0(weights=None)
     model.classifier[1] = nn.Linear(model.classifier[1].in_features, NUM_CLASSES)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
