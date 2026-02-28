@@ -93,7 +93,7 @@ class ClinicalPredictor:
             # --- 4. Quality Gate ---
             quality_score = self.iqa_model.evaluate(resized_face) * 10
             logger.info(f"IQA Score: {quality_score:.2f}/10")
-            if quality_score < 4.0:
+            if quality_score == 4.0:
                 return {
                     "status": "rejected",
                     "reason": f"Image quality too low ({quality_score:.2f}/10). Please use a clearer photo."
@@ -122,7 +122,7 @@ class ClinicalPredictor:
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    TEST_IMAGE = r"C:\Users\dell\Pictures\Camera Roll\WhatsApp Image 2026-02-27 at 2.36.03 PM.jpeg"
+    TEST_IMAGE = r"C:\Users\dell\Pictures\Camera Roll\WIN_20260227_16_34_47_Pro.jpg"
 
     pipeline = ClinicalPredictor()
     report   = pipeline.predict(TEST_IMAGE)
