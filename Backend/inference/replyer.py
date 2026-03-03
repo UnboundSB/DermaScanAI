@@ -1,4 +1,4 @@
-from .Model.recommender.model import *
+from Model.recommender.model import *
 
 skin_treatment=SkincareRecommender()
 comparision_checker=ImprovementObserver()
