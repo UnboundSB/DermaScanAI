@@ -1,0 +1,13 @@
+{
+    "status": "success",
+    "quality_score": 8.75,
+    "primary_diagnosis": "acne",
+    "confidence": 72.5,
+    "margin_results": {
+        "acne": 72.5,
+        "darkspots": 68.0
+    },
+    "prescription": "I am noticing distinct areas of distinct acne alongside active darkspots, but with a targeted routine, we can make real progress. Catching this now gives us a great head start.  based on what i'm seeing, the most effective strategy is to start with an encapsulated Retinol resurfacing serum, a 5% Cysteamine leave-on cream, and a Glycolic Acid overnight peel to clear this up effectively.",
+    "timestamp": "2026-03-05T11:35:51.578001",
+    "session_id": "test_user_001"
+}

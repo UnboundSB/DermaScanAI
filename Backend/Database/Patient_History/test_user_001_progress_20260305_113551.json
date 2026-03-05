@@ -1,0 +1,12 @@
+{
+    "status": "success",
+    "type": "progress_evaluation",
+    "tracked_symptoms": [
+        "acne",
+        "darkspots"
+    ],
+    "reported_status": "worsened",
+    "feedback": "I am looking at the data, and it appears the symptoms have unfortunately intensified. Let's protect your skin barrier before anything else. Please consult a dermatologist to prevent any potential deep scarring, avoid all makeup and heavy products for at least one week, stop all brightening acids, as this might be irritation-induced hyperpigmentation, switch to a purely mineral-based SPF formula, and stay indoors as much as possible until the irritation subsides.",
+    "timestamp": "2026-03-05T11:35:51.587091",
+    "session_id": "test_user_001"
+}
