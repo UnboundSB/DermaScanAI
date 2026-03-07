@@ -1,9 +1,10 @@
+import json
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
-import json
-from Backend.Database.db import get_db, User, PredictionRecord
-import hashlib
+
+# --- The Ghost-Proof Import ---
+from core_db.db import get_db, User, PredictionRecord
 
 router = APIRouter()
 
