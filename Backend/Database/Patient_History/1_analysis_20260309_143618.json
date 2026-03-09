@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.49,
+    "primary_diagnosis": "clear_face",
+    "confidence": 69.42,
+    "all_confidences": {
+        "acne": 7.41,
+        "clear_face": 69.42,
+        "darkspots": 0.63,
+        "puffy_eyes": 0.61,
+        "wrinkles": 21.93
+    },
+    "margin_results": {
+        "clear_face": 69.42
+    },
+    "prescription": "Your skin looks incredibly healthy and clear! To maintain this gorgeous baseline, what's going to work best here is a combination approach using a weekly antioxidant mask and a Vitamin C morning serum.",
+    "timestamp": "2026-03-09T14:36:18.265350",
+    "session_id": "1"
+}
