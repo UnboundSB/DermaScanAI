@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.88,
+    "primary_diagnosis": "acne",
+    "confidence": 61.16,
+    "all_confidences": {
+        "acne": 61.16,
+        "clear_face": 30.34,
+        "darkspots": 2.71,
+        "puffy_eyes": 0.67,
+        "wrinkles": 5.12
+    },
+    "margin_results": {
+        "acne": 61.16
+    },
+    "prescription": "Oh my, noticeable acne, though I want you to know this is very manageable. You're taking the right step by addressing this early.  you might want to try a targeted 5% Benzoyl Peroxide gel and a 15% Niacinamide clearing serum to overcome this.",
+    "timestamp": "2026-03-10T11:47:03.020957",
+    "session_id": "2"
+}
