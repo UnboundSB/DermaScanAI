@@ -123,14 +123,3 @@ Developed with a focus on privacy, speed, and architectural scalability.
 
 
 ***
-
-How is that for a broader scope? It adds a massive layer of professionalism. 
-
-Now, sticking to our new "blueprint first" rule: let's talk about the **Camera Capture component** (`CameraCapture.jsx`). 
-
-When the user clicks "New Clinical Scan" on the dashboard, what should they see? 
-1. **The Sci-Fi Scanner:** A live webcam feed with a pulsing targeting reticle/crosshair overlay, looking like a terminator HUD?
-2. **The Clean Dropzone:** A sleek, glassmorphism box where they simply click to upload an existing file from their phone/computer gallery?
-3. **A hybrid:** Options for both live webcam *and* file upload?
-
-Tell me your vision for the user experience here!
