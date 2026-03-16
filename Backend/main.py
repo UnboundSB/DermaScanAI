@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from core_db.database import engine, Base
+from core_db.db import engine, Base
 from api.endpoints import users, scans
 import os
 
