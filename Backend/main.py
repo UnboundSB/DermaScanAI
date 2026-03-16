@@ -1,28 +1,34 @@
-import os
-import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from core_db.database import engine, Base
+from api.endpoints import users, scans
+import os
 
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-if PROJECT_ROOT not in sys.path:
-    sys.path.append(PROJECT_ROOT)
+# Create upload directory if it doesn't exist
+os.makedirs("uploads", exist_ok=True)
 
-from api.endpoints import users, predict
+# Generate database tables
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="DermaScanAI Enterprise API")
+app = FastAPI(title="DermaScan AI Engine")
 
+# --- THE CORS FIX ---
+# This stops the browser from blocking your React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=[
+        "http://localhost:5173",  # Standard Vite port
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # Allows GET, POST, DELETE, PUT, etc.
     allow_headers=["*"],
 )
 
-# Mount the separate endpoints
+# Register our expanded routers
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
-app.include_router(predict.router, prefix="/api/ml", tags=["Clinical Engine"])
+app.include_router(scans.router, prefix="/api/scans", tags=["Scans"])
 
 @app.get("/")
 def health_check():
-    return {"status": "Database & AI Engines Online."}
+    return {"status": "DermaScan AI Backend is operational."}
