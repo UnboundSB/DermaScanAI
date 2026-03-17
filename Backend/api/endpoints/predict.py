@@ -4,12 +4,14 @@ import json
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Form
 from sqlalchemy.orm import Session
 
-# --- The Ghost-Proof Import ---
+
 from core_db.db import get_db, PredictionRecord
 from inference.replyer import DiagnosticReplyer
 from inference.predictor import ClinicalPredictor
 
 router = APIRouter()
+
+# Initialize your ML models once when the server starts
 ai_engine = ClinicalPredictor()
 replyer = DiagnosticReplyer()
 
@@ -20,10 +22,14 @@ async def analyze_skin(
     file: UploadFile = File(...), 
     db: Session = Depends(get_db)
 ):
-    contents = await file.read()
+    # 1. Read the raw lightweight bytes
+    contents = await file.read() 
+    
+    # 2. Convert to NumPy for the PyTorch Engine (RAM only, vaporizes after)
     nparr = np.frombuffer(contents, np.uint8)
     img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
+    # 3. Trigger your ML Engine
     raw_report = ai_engine.predict(img_bgr)
     if raw_report.get("status") in ["rejected", "error"]:
         raise HTTPException(status_code=422, detail=raw_report)
@@ -34,6 +40,7 @@ async def analyze_skin(
     bulk_symptoms = {symp: score for symp, score in all_confs.items() if score >= (max_score - 15.0)}
     raw_report["margin_results"] = bulk_symptoms 
 
+    # 4. Generate the proper report based on scan type
     if scan_type == "normal":
         final_report = replyer.finalize_and_route_analysis(raw_report, session_id=str(user_id))
     
@@ -71,10 +78,12 @@ async def analyze_skin(
     else:
         raise HTTPException(status_code=400, detail="Invalid scan_type. Use 'normal' or '10_day'.")
 
+    # 5. THE VAULT: Save the JSON and the raw image BLOB natively to SQLite
     new_record = PredictionRecord(
         user_id=user_id,
         scan_type=scan_type,
-        report_data=json.dumps(final_report)
+        report_data=json.dumps(final_report),
+        image_data=contents  # <--- The magic happens here
     )
     db.add(new_record)
     db.commit()
