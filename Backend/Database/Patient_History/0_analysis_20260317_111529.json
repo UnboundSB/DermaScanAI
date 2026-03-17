@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.49,
+    "primary_diagnosis": "clear_face",
+    "confidence": 69.42,
+    "all_confidences": {
+        "acne": 7.41,
+        "clear_face": 69.42,
+        "darkspots": 0.63,
+        "puffy_eyes": 0.61,
+        "wrinkles": 21.93
+    },
+    "margin_results": {
+        "clear_face": 69.42
+    },
+    "prescription": "I'm seeing a beautifully clear and balanced complexion! To maintain this gorgeous baseline, my top clinical recommendation is a Vitamin C morning serum and a simple barrier-repairing serum.",
+    "timestamp": "2026-03-17T11:15:29.808136",
+    "session_id": "0"
+}

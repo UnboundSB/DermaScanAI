@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.88,
+    "primary_diagnosis": "acne",
+    "confidence": 61.16,
+    "all_confidences": {
+        "acne": 61.16,
+        "clear_face": 30.34,
+        "darkspots": 2.71,
+        "puffy_eyes": 0.67,
+        "wrinkles": 5.12
+    },
+    "margin_results": {
+        "acne": 61.16
+    },
+    "prescription": "It's evident that we are looking at visible acne, but with a targeted routine, we can make real progress.  the best approach would be to use an Azelaic Acid 10% suspension or a Mandelic Acid gentle chemical peel to stop this at the source.",
+    "timestamp": "2026-03-17T11:35:36.538503",
+    "session_id": "0"
+}

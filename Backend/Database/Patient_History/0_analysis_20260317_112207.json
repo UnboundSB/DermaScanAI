@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.49,
+    "primary_diagnosis": "clear_face",
+    "confidence": 69.42,
+    "all_confidences": {
+        "acne": 7.41,
+        "clear_face": 69.42,
+        "darkspots": 0.63,
+        "puffy_eyes": 0.61,
+        "wrinkles": 21.93
+    },
+    "margin_results": {
+        "clear_face": 69.42
+    },
+    "prescription": "Wonderful news\u2014your complexion is in excellent condition! To maintain this gorgeous baseline, to address this properly, let's begin with a simple barrier-repairing serum, a gentle PHA daily toner, and a barrier-supporting squalane oil.",
+    "timestamp": "2026-03-17T11:22:07.317838",
+    "session_id": "0"
+}

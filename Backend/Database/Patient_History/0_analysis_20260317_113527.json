@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.49,
+    "primary_diagnosis": "clear_face",
+    "confidence": 69.42,
+    "all_confidences": {
+        "acne": 7.41,
+        "clear_face": 69.42,
+        "darkspots": 0.63,
+        "puffy_eyes": 0.61,
+        "wrinkles": 21.93
+    },
+    "margin_results": {
+        "clear_face": 69.42
+    },
+    "prescription": "I'm seeing a beautifully clear and balanced complexion! To maintain this gorgeous baseline, a solid game plan involves a lightweight ceramide moisturizer, a daily SPF 50 sunscreen, and a weekly antioxidant mask.",
+    "timestamp": "2026-03-17T11:35:27.969751",
+    "session_id": "0"
+}
