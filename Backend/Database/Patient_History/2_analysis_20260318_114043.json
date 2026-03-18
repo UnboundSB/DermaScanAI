@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.87,
+    "primary_diagnosis": "acne",
+    "confidence": 61.25,
+    "all_confidences": {
+        "acne": 61.25,
+        "clear_face": 31.53,
+        "darkspots": 2.42,
+        "puffy_eyes": 1.34,
+        "wrinkles": 3.46
+    },
+    "margin_results": {
+        "acne": 61.25
+    },
+    "prescription": "Based on the scan, I noticed visible acne, but the good news is we can address this effectively. I'm glad you're taking action on this.  here's what i'd recommend to target this specifically: a Mandelic Acid gentle chemical peel Consistency is key\u2014stick with this for at least 3 weeks.",
+    "timestamp": "2026-03-18T11:40:43.782086",
+    "session_id": "2"
+}

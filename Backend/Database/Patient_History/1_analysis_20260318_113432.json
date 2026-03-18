@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.87,
+    "primary_diagnosis": "acne",
+    "confidence": 61.25,
+    "all_confidences": {
+        "acne": 61.25,
+        "clear_face": 31.53,
+        "darkspots": 2.42,
+        "puffy_eyes": 1.34,
+        "wrinkles": 3.46
+    },
+    "margin_results": {
+        "acne": 61.25
+    },
+    "prescription": "Oh my, moderate acne, though I want you to know this is very manageable.  you might want to try an Adapalene 0.1% gel combined with a Mandelic Acid gentle chemical peel for optimal skin health.",
+    "timestamp": "2026-03-18T11:34:32.064558",
+    "session_id": "1"
+}
