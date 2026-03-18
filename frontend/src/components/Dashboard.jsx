@@ -1,84 +1,170 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { Activity, Clock, PlusCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import './Dashboard.css';
 
-export default function Dashboard({ userId }) {
-  const navigate = useNavigate();
+const Dashboard = ({ userId, setCurrentView }) => {
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // --- THE DATA FETCH (Backend Route Fixed!) ---
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/api/users/${userId}/history`);
-        setHistory(res.data.history);
+        // FIXED: The history endpoint lives inside the users router, not scans!
+        const response = await fetch(`http://localhost:8000/api/users/${userId}/history`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch clinical data.');
+        }
+        const data = await response.json();
+        setHistory(data.history || []);
       } catch (err) {
-        console.error("Failed to load history", err);
+        setError(err.message);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
-    fetchHistory();
+
+    if (userId) {
+      fetchHistory();
+    }
   }, [userId]);
 
-  return (
-    <div className="space-y-8">
-      {/* Action Cards */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <button 
-          onClick={() => navigate('/scan/normal')}
-          className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition text-left flex items-start space-x-4"
-        >
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><PlusCircle /></div>
-          <div>
-            <h3 className="text-lg font-bold">New Clinical Scan</h3>
-            <p className="text-sm text-slate-500">Take a fresh photo to analyze your skin's current baseline.</p>
-          </div>
-        </button>
+  // --- DATA PROCESSING FOR QUICK STATS ---
+  const totalScans = history.length;
+  const latestScan = totalScans > 0 ? history[0] : null; 
+  
+  // Format the date to look professional
+  const formatDate = (isoString) => {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
 
-        <button 
-          onClick={() => navigate('/scan/10_day')}
-          className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition text-left flex items-start space-x-4"
-        >
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><Activity /></div>
-          <div>
-            <h3 className="text-lg font-bold">10-Day Follow Up</h3>
-            <p className="text-sm text-slate-500">Track your progress and adjust your prescription.</p>
-          </div>
-        </button>
+  // Get badge class name
+  const getBadgeClass = (scanType) => {
+    if (scanType === '10_day') {
+      return 'scan-badge progress-check';
+    }
+    return `scan-badge ${scanType || 'baseline'}`;
+  };
+
+  // Get badge text
+  const getBadgeText = (scanType) => {
+    if (scanType === '10_day') {
+      return 'Progress Check';
+    }
+    return 'Baseline Scan';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-container loading">
+        <div className="spinner"></div>
+        <p>Loading Clinical Hub...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-container error">
+        <h2>Connection Error</h2>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Retry Connection</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard-container">
+      <header className="dashboard-header">
+        <h1>Welcome, Patient #{userId}</h1>
+        <p className="dashboard-subtitle">Here is your current clinical overview.</p>
+      </header>
+
+      {/* --- QUICK STATS WIDGETS --- */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Total Scans</h3>
+          <p className="stat-value">{totalScans}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Latest Analysis</h3>
+          <p className="stat-value">
+            {latestScan ? formatDate(latestScan.timestamp) : 'N/A'}
+          </p>
+        </div>
+        <div className="stat-card">
+          <h3>Current Status</h3>
+          <p className="stat-value">
+            {totalScans > 0 ? 'Active Monitoring' : 'Awaiting Baseline'}
+          </p>
+        </div>
       </div>
 
-      {/* History Feed */}
-      <div>
-        <h2 className="text-xl font-bold mb-4 flex items-center"><Clock className="mr-2 h-5 w-5" /> Previous Scans</h2>
-        {loading ? (
-          <p className="text-slate-500">Loading history...</p>
-        ) : history.length === 0 ? (
-          <p className="text-slate-500 bg-white p-6 rounded-xl border border-dashed border-slate-300 text-center">No previous scans found. Start by taking a new scan.</p>
+      {/* --- THE MAIN CONTENT AREA --- */}
+      <div className="dashboard-main-content">
+        
+        {totalScans === 0 ? (
+          // EMPTY STATE
+          <div className="empty-state-card">
+            <div className="empty-icon">📷</div>
+            <h2>No Clinical Data Found</h2>
+            <p>You haven't initialized your baseline scan yet. Start the AI analysis to generate your customized treatment plan.</p>
+            <button 
+              className="action-btn primary"
+              onClick={() => setCurrentView('scan')}
+            >
+              Take First Scan
+            </button>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {history.map((record) => (
-              <div key={record.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center cursor-pointer hover:bg-slate-50"
-                   onClick={() => navigate('/report', { state: { report: record.report } })}>
-                <div>
-                  <p className="font-semibold capitalize text-slate-800">
-                    {record.scan_type === '10_day' ? 'Follow-Up Scan' : 'Baseline Scan'}
-                  </p>
-                  <p className="text-sm text-slate-500">{new Date(record.timestamp).toLocaleString()}</p>
-                </div>
-                <div className="text-right">
-                  {record.report.primary_diagnosis && (
-                    <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium capitalize">
-                      {record.report.primary_diagnosis.replace('_', ' ')}
-                    </span>
-                  )}
-                </div>
+          // ACTIVE STATE (Showing latest scan summary)
+          <div className="latest-scan-summary">
+            <h2>Latest Report Summary</h2>
+            <div className="summary-card">
+              <div className="summary-header">
+                <span className={getBadgeClass(latestScan.scan_type)}>
+                  {latestScan.scan_type === '10_day' ? '📈' : '🎯'} {getBadgeText(latestScan.scan_type)}
+                </span>
+                <span className="summary-date">
+                  🕐 {formatDate(latestScan.timestamp)}
+                </span>
               </div>
-            ))}
+              
+              <div className="summary-body">
+                {/* Display the AI-generated prescription/report */}
+                <p className="prescription-text">
+                  {latestScan.report?.prescription || latestScan.report?.report || 'No detailed report available.'}
+                </p>
+              </div>
+
+              <div className="summary-actions">
+                <button 
+                  className="action-btn outline"
+                  onClick={() => setCurrentView('history')}
+                >
+                  View Full History
+                </button>
+                <button 
+                  className="action-btn primary"
+                  onClick={() => setCurrentView('scan')}
+                >
+                  Take Follow-up Scan
+                </button>
+              </div>
+            </div>
           </div>
         )}
+
       </div>
     </div>
   );
-}
+};
+
+export default Dashboard;
