@@ -1,46 +1,89 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import './App.css'; 
+
+// --- THE COMPONENT ROSTER ---
 import Auth from './components/Auth';
+import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
-import CameraCapture from './components/CameraCapture';
-import ReportCard from './components/ReportCard';
+import NewScan from './components/NewScan';
+import History from './components/History';
+import Compare from './components/Compare';
 
-export default function App() {
-  const [userId, setUserId] = useState(localStorage.getItem('userId'));
+function App() {
+  // --- GLOBAL STATE ---
+  // 1. Tracks who is logged in
+  const [userId, setUserId] = useState(null);
+  
+  // 2. The Custom Router (dashboard, scan, history, compare)
+  const [currentView, setCurrentView] = useState('dashboard');
+  
+  // 3. The Memory Bank (Stores a specific scan ID when a user clicks "Compare" on the History page)
+  const [compareScanId, setCompareScanId] = useState(null);
 
-  useEffect(() => {
-    const handleStorageChange = () => setUserId(localStorage.getItem('userId'));
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('userId');
-    setUserId(null);
+  // --- AUTHENTICATION HANDLERS ---
+  const handleAuthSuccess = (id) => {
+    setUserId(id);
+    setCurrentView('dashboard');
   };
 
+  const handleLogout = () => {
+    setUserId(null);
+    setCurrentView('dashboard');
+    setCompareScanId(null);
+  };
+
+  // --- THE GATEKEEPER ---
+  // If no user is logged in, they cannot pass this line.
+  if (!userId) {
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  // --- THE MASTER APP SHELL ---
   return (
-    <Router>
-      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-        {/* Simple Global Header */}
-        {userId && (
-          <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-            <h1 className="text-xl font-bold text-blue-600">DermaScan AI</h1>
-            <button onClick={handleLogout} className="text-sm text-slate-500 hover:text-slate-800">
-              Sign Out
-            </button>
-          </header>
+    <div className="app-layout">
+      {/* The Navigation Bar sits fixed at the top/side */}
+      <Navbar 
+        currentView={currentView} 
+        setCurrentView={setCurrentView} 
+        onLogout={handleLogout} 
+      />
+
+      {/* The Dynamic Viewport */}
+      <main className="main-content">
+        
+        {currentView === 'dashboard' && (
+          <Dashboard 
+            userId={userId} 
+            setCurrentView={setCurrentView} 
+          />
+        )}
+        
+        {currentView === 'scan' && (
+          <NewScan 
+            userId={userId} 
+            setCurrentView={setCurrentView} 
+          />
+        )}
+        
+        {currentView === 'history' && (
+          <History 
+            userId={userId} 
+            setCurrentView={setCurrentView} 
+            setCompareScanId={setCompareScanId} 
+          />
+        )}
+        
+        {currentView === 'compare' && (
+          <Compare 
+            userId={userId} 
+            compareScanId={compareScanId} 
+            setCurrentView={setCurrentView} 
+          />
         )}
 
-        <main className="max-w-4xl mx-auto p-4 md:p-8">
-          <Routes>
-            <Route path="/" element={!userId ? <Auth setUserId={setUserId} /> : <Navigate to="/dashboard" />} />
-            <Route path="/dashboard" element={userId ? <Dashboard userId={userId} /> : <Navigate to="/" />} />
-            <Route path="/scan/:type" element={userId ? <CameraCapture userId={userId} /> : <Navigate to="/" />} />
-            <Route path="/report" element={userId ? <ReportCard /> : <Navigate to="/" />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+      </main>
+    </div>
   );
 }
+
+export default App;
