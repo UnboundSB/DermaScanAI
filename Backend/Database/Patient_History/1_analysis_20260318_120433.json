@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.11,
+    "primary_diagnosis": "acne",
+    "confidence": 63.79,
+    "all_confidences": {
+        "acne": 63.79,
+        "clear_face": 6.72,
+        "darkspots": 18.1,
+        "puffy_eyes": 0.55,
+        "wrinkles": 10.85
+    },
+    "margin_results": {
+        "acne": 63.79
+    },
+    "prescription": "I am detecting a fair amount of acne, but with a targeted routine, we can make real progress.  a great step forward would be incorporating a PHA/BHA exfoliating toner and a sulfur-based clarifying mask to treat the area.",
+    "timestamp": "2026-03-18T12:04:33.821741",
+    "session_id": "1"
+}

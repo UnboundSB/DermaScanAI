@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.49,
+    "primary_diagnosis": "clear_face",
+    "confidence": 69.42,
+    "all_confidences": {
+        "acne": 7.41,
+        "clear_face": 69.42,
+        "darkspots": 0.63,
+        "puffy_eyes": 0.61,
+        "wrinkles": 21.93
+    },
+    "margin_results": {
+        "clear_face": 69.42
+    },
+    "prescription": "Wonderful news\u2014your complexion is in excellent condition! To maintain this gorgeous baseline, i'd like you to consider implementing a simple barrier-repairing serum or a daily SPF 50 sunscreen.",
+    "timestamp": "2026-03-18T12:02:08.885322",
+    "session_id": "1"
+}
