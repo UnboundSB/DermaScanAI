@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.88,
+    "primary_diagnosis": "acne",
+    "confidence": 61.16,
+    "all_confidences": {
+        "acne": 61.16,
+        "clear_face": 30.34,
+        "darkspots": 2.71,
+        "puffy_eyes": 0.67,
+        "wrinkles": 5.12
+    },
+    "margin_results": {
+        "acne": 61.16
+    },
+    "prescription": "The data points toward stubborn acne. Don't worry\u2014this responds really well to the right approach.  you should definitely look into a sulfur-based clarifying mask or a PHA/BHA exfoliating toner to stop this at the source.",
+    "timestamp": "2026-03-19T11:06:13.172927",
+    "session_id": "3"
+}

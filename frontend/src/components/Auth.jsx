@@ -103,7 +103,7 @@ const Auth = ({ onAuthSuccess }) => {
         <div className="intro-features">
           <div className="feature-badge">
             <span className="feature-icon">🎯</span>
-            <span>98% Accuracy</span>
+            <span>92% Accuracy</span>
           </div>
           <div className="feature-badge">
             <span className="feature-icon">⚡</span>
@@ -111,7 +111,7 @@ const Auth = ({ onAuthSuccess }) => {
           </div>
           <div className="feature-badge">
             <span className="feature-icon">🔒</span>
-            <span>HIPAA Compliant</span>
+            <span>Proven Treatments</span>
           </div>
         </div>
       </div>

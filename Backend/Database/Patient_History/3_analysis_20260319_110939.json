@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.26,
+    "primary_diagnosis": "clear_face",
+    "confidence": 81.54,
+    "all_confidences": {
+        "acne": 6.56,
+        "clear_face": 81.54,
+        "darkspots": 7.16,
+        "puffy_eyes": 0.74,
+        "wrinkles": 4.0
+    },
+    "margin_results": {
+        "clear_face": 81.54
+    },
+    "prescription": "Your skin is looking absolutely radiant! To maintain this gorgeous baseline, the best approach would be to use a double-cleansing routine at night, a gentle PHA daily toner, and a Vitamin C morning serum.",
+    "timestamp": "2026-03-19T11:09:39.885048",
+    "session_id": "3"
+}

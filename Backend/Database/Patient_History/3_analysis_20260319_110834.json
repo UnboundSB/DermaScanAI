@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.78,
+    "primary_diagnosis": "clear_face",
+    "confidence": 57.65,
+    "all_confidences": {
+        "acne": 18.54,
+        "clear_face": 57.65,
+        "darkspots": 6.43,
+        "puffy_eyes": 1.38,
+        "wrinkles": 16.0
+    },
+    "margin_results": {
+        "clear_face": 57.65
+    },
+    "prescription": "Your skin is looking absolutely radiant! To maintain this gorgeous baseline, i suggest applying a barrier-supporting squalane oil or a weekly antioxidant mask.",
+    "timestamp": "2026-03-19T11:08:34.908039",
+    "session_id": "3"
+}

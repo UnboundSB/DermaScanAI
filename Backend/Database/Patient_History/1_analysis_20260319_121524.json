@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.26,
+    "primary_diagnosis": "clear_face",
+    "confidence": 81.54,
+    "all_confidences": {
+        "acne": 6.56,
+        "clear_face": 81.54,
+        "darkspots": 7.16,
+        "puffy_eyes": 0.74,
+        "wrinkles": 4.0
+    },
+    "margin_results": {
+        "clear_face": 81.54
+    },
+    "prescription": "Wonderful news\u2014your complexion is in excellent condition! To maintain this gorgeous baseline, what's going to work best here is a combination approach using a simple barrier-repairing serum, a gentle PHA daily toner, and a weekly antioxidant mask.",
+    "timestamp": "2026-03-19T12:15:24.890855",
+    "session_id": "1"
+}

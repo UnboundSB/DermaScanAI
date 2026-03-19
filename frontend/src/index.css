@@ -1,12 +1,52 @@
-/* THE GLOBAL RESET */
+/* ============================================
+   GLOBAL COLOR PALETTE: TRUST BLUE (MEDICAL STANDARD)
+   ============================================ */
+:root {
+  --primary: #3b82f6;       
+  --primary-darker: #2563eb; 
+  --accent: #60a5fa;        
+  --bg-card: rgba(15, 23, 42, 0.7); 
+  --border: rgba(59, 130, 246, 0.3); 
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --text-secondary: rgba(255, 255, 255, 0.85);
+  --success: #10b981;       
+  --error: #ef4444;         
+  --warning: #f59e0b;       
+}
+
+/* ============================================
+   GLOBAL RESET & BODY STYLES
+   ============================================ */
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
+  background-color: #020617; /* The deep, dark hospital blue background */
+  color: white;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0f172a; /* Fallback dark background */
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Optional: Custom Scrollbar to match the theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.8);
 }

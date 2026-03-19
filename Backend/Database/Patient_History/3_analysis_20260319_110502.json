@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.25,
+    "primary_diagnosis": "acne",
+    "confidence": 61.94,
+    "all_confidences": {
+        "acne": 61.94,
+        "clear_face": 18.28,
+        "darkspots": 5.56,
+        "puffy_eyes": 2.73,
+        "wrinkles": 11.49
+    },
+    "margin_results": {
+        "acne": 61.94
+    },
+    "prescription": "Looking closely, it appears you are dealing with developing acne. This is something I see often, and there are excellent solutions. Your skin will thank you for this intervention.  i suggest applying an Azelaic Acid 10% suspension to see a noticeable improvement.",
+    "timestamp": "2026-03-19T11:05:02.509010",
+    "session_id": "3"
+}
