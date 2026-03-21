@@ -17,20 +17,30 @@ const NewScan = ({ userId, setCurrentView }) => {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Cleanup camera if component unmounts
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
-
   // --- CAMERA HANDLING ---
+  // This useEffect ensures the video element exists in the DOM BEFORE we turn on the webcam
+  useEffect(() => {
+    if (inputMode === 'camera') {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    // Cleanup on unmount
+    return () => stopCamera();
+  }, [inputMode]);
+
   const startCamera = async () => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } 
       });
-      videoRef.current.srcObject = stream;
       streamRef.current = stream;
+      
+      // Crucial: Attach stream ONLY if videoRef is ready
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
       setIsCameraActive(true);
     } catch (err) {
       setError("Camera access denied or no camera found. Please use upload mode.");
@@ -52,20 +62,17 @@ const NewScan = ({ userId, setCurrentView }) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Match canvas size to video frame
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
-    // Draw the current video frame onto the canvas
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Convert canvas to a File object so it perfectly matches our FormData logic
     canvas.toBlob((blob) => {
       const file = new File([blob], "webcam-scan.jpg", { type: "image/jpeg" });
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
-      stopCamera();
+      // Camera will automatically stop because setting previewUrl changes the UI
     }, 'image/jpeg', 0.95);
   };
 
@@ -132,20 +139,12 @@ const NewScan = ({ userId, setCurrentView }) => {
     setPreviewUrl(null);
     setReport(null);
     setError(null);
-    if (inputMode === 'camera') {
-      startCamera();
-    }
   };
 
-  // Toggle between Upload and Camera modes
+  // Toggle between Upload and Camera modes safely
   const handleModeSwitch = (mode) => {
     setInputMode(mode);
     resetScanner();
-    if (mode === 'camera') {
-      startCamera();
-    } else {
-      stopCamera();
-    }
   };
 
   return (
@@ -217,13 +216,18 @@ const NewScan = ({ userId, setCurrentView }) => {
             ) : (
               // CAMERA MODE
               <div className="camera-container">
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  className="live-video-feed" 
+                  style={{ display: isCameraActive ? 'block' : 'none' }} 
+                />
+                
                 {isCameraActive ? (
-                  <>
-                    <video ref={videoRef} autoPlay playsInline className="live-video-feed" />
-                    <button className="capture-shutter-btn" onClick={capturePhoto}>
-                      <div className="shutter-inner"></div>
-                    </button>
-                  </>
+                  <button className="capture-shutter-btn" onClick={capturePhoto}>
+                    <div className="shutter-inner"></div>
+                  </button>
                 ) : (
                   <div className="camera-loading">
                     <div className="spinner"></div>

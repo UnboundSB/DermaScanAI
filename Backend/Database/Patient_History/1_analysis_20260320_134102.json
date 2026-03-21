@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.87,
+    "primary_diagnosis": "acne",
+    "confidence": 61.25,
+    "all_confidences": {
+        "acne": 61.25,
+        "clear_face": 31.53,
+        "darkspots": 2.42,
+        "puffy_eyes": 1.34,
+        "wrinkles": 3.46
+    },
+    "margin_results": {
+        "acne": 61.25
+    },
+    "prescription": "I am noticing distinct areas of noticeable acne. The positive side? We have great options to tackle this. Your skin will thank you for this intervention.  you should definitely look into a 15% Niacinamide clearing serum and an Adapalene 0.1% gel for the best possible results.",
+    "timestamp": "2026-03-20T13:41:02.104540",
+    "session_id": "1"
+}

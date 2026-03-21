@@ -95,6 +95,7 @@ class SkincareRecommender:
         ]
 
         self.treatments = {
+            
             "acne": {
                 "minor": [
                     "a gentle 2% Salicylic Acid cleanser", "a mild tea tree oil spot treatment", 
@@ -211,23 +212,29 @@ class SkincareRecommender:
             return conjunction.join(selected_treatments)
         else:
             return ", ".join(selected_treatments[:-1]) + ", and " + selected_treatments[-1]
-
+    
     def generate_prescription(self, diagnoses: list) -> str:
+        import random # Ensure random is available
+        
+        # FAIL-SAFE 1: Handle completely empty predictions
+        if not diagnoses:
+            diagnoses = [("clear_face", 99.9)]
+
         intro = random.choice(self.intros)
         
-        # Use extended transitions sometimes for variety
         if random.random() < 0.4:
             transition = random.choice(self.extended_transitions)
         else:
             transition = random.choice(self.transitions)
         
-        # Use extended outros sometimes
         if random.random() < 0.3:
             outro = random.choice(self.extended_outros)
         else:
             outro = random.choice(self.outros)
         
-        if diagnoses[0][0] == "clear_face":
+        # FAIL-SAFE 2: Catch if the primary diagnosis is clear
+        top_diagnosis = diagnoses[0][0].lower()
+        if "clear" in top_diagnosis or top_diagnosis == "none":
             num_suggestions = random.choice([2, 3])
             selected_maintenance = random.sample(self.clear_face_maintenance, num_suggestions)
             treatment_text = self._format_multiple_treatments(selected_maintenance)
@@ -243,22 +250,32 @@ class SkincareRecommender:
         all_treatments = []
 
         for symptom, confidence in diagnoses:
+            # ==========================================
+            # FAIL-SAFE 3: THE KEYERROR KILLER
+            # ==========================================
+            # If the symptom (like 'clear_face') is NOT in our treatment dictionary, 
+            # gracefully skip it instead of crashing the server!
+            if symptom not in self.treatments:
+                continue
+
             formatted_symp = symptom.replace("_", " ")
             sev_level = self._determine_severity(confidence)
             adj = random.choice(self.severity_adjectives[sev_level])
             symptom_descriptions.append(f"{adj}{formatted_symp}")
             
-            # Pull 1 or 2 treatments per symptom to avoid overwhelming the user
             num_treatments = random.choice([1, 2])
             treatments = random.sample(self.treatments[symptom][sev_level], num_treatments)
             all_treatments.extend(treatments)
+
+        # FAIL-SAFE 4: If all symptoms were skipped (meaning nothing to treat)
+        if not symptom_descriptions:
+            return "Analysis complete. Your skin barrier appears healthy and stable. Maintain a gentle cleansing routine and daily SPF 50+."
 
         if len(symptom_descriptions) > 1:
             joined_symptoms = " alongside ".join(symptom_descriptions)
         else:
             joined_symptoms = symptom_descriptions[0]
 
-        # Add connector and encouragement for more natural flow
         connector = random.choice(self.connectors)
         encouragement = random.choice(self.encouragements) if random.random() < 0.5 else ""
         
@@ -266,7 +283,7 @@ class SkincareRecommender:
 
         final_sentence = f"{intro}{joined_symptoms}{connector}{encouragement}{transition.capitalize()}{treatment_text}{outro}"
         return final_sentence
-
+    
 class ImprovementObserver:
     def __init__(self):
         # 1. SUCCESS STATE

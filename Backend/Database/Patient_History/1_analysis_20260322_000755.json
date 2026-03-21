@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.0,
+    "primary_diagnosis": "clear_face",
+    "confidence": 57.79,
+    "all_confidences": {
+        "acne": 35.58,
+        "clear_face": 57.79,
+        "darkspots": 0.65,
+        "puffy_eyes": 2.79,
+        "wrinkles": 3.19
+    },
+    "margin_results": {
+        "clear_face": 57.79
+    },
+    "prescription": "Your skin is looking absolutely radiant! To maintain this gorgeous baseline, the most effective route here is a barrier-supporting squalane oil and a Vitamin C morning serum.",
+    "timestamp": "2026-03-22T00:07:55.592345",
+    "session_id": "1"
+}

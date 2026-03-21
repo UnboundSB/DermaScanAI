@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.38,
+    "primary_diagnosis": "acne",
+    "confidence": 50.98,
+    "all_confidences": {
+        "acne": 50.98,
+        "clear_face": 15.26,
+        "darkspots": 9.11,
+        "puffy_eyes": 0.92,
+        "wrinkles": 23.73
+    },
+    "margin_results": {
+        "acne": 50.98
+    },
+    "prescription": "I've carefully analyzed your face and found surface-level acne, which is quite common and definitely treatable.  here's what i'd recommend to target this specifically: hydrocolloid pimple patches combined with a gentle 2% Salicylic Acid cleanser This should show visible results within 2-4 weeks.",
+    "timestamp": "2026-03-22T00:07:26.771643",
+    "session_id": "1"
+}

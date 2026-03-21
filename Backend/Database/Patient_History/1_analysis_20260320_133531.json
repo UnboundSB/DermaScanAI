@@ -1,0 +1,20 @@
+{
+    "status": "success",
+    "quality_score": 1.01,
+    "primary_diagnosis": "acne",
+    "confidence": 43.79,
+    "all_confidences": {
+        "acne": 43.79,
+        "clear_face": 35.66,
+        "darkspots": 2.16,
+        "puffy_eyes": 9.39,
+        "wrinkles": 9.0
+    },
+    "margin_results": {
+        "acne": 43.79,
+        "clear_face": 35.66
+    },
+    "prescription": "It's evident that we are looking at a touch of acne alongside beginning signs of clear face, but the good news is we can address this effectively.  i suggest applying a Zinc PCA daily toner, a succinic acid blemish treatment, a mild AHA exfoliating toner, and a soothing turmeric mask Give it time to work its magic\u2014your skin will adapt beautifully.",
+    "timestamp": "2026-03-20T13:35:31.282270",
+    "session_id": "1"
+}

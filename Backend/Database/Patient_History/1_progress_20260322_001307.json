@@ -1,0 +1,11 @@
+{
+    "status": "success",
+    "type": "progress_evaluation",
+    "tracked_symptoms": [
+        "acne"
+    ],
+    "reported_status": "worsened",
+    "feedback": "Oh no, it seems the current routine is irritating your skin further. We need to shift gears quickly to prevent further damage. Please stop all chemical exfoliants and harsh washes immediately and consult a dermatologist to prevent any potential deep scarring.",
+    "timestamp": "2026-03-22T00:13:07.460325",
+    "session_id": "1"
+}
