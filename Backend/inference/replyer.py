@@ -61,7 +61,8 @@ class DiagnosticReplyer:
             "type": "progress_evaluation",
             "tracked_symptoms": symptoms,
             "reported_status": status,
-            "feedback": feedback,
+            "prescription": feedback,  # <--- CHANGED FROM 'feedback'
+            "report": f"10-Day Delta Analysis Complete. Status: {status.upper()}", # Add this so the UI title works too!
             "timestamp": datetime.now().isoformat(),
             "session_id": session_id
         }

@@ -1,0 +1,11 @@
+{
+    "status": "success",
+    "type": "progress_evaluation",
+    "tracked_symptoms": [
+        "clear_face"
+    ],
+    "reported_status": "worsened",
+    "feedback": "Your skin is remaining perfectly clear! Keep doing exactly what you are doing\u2014whatever you're doing is working beautifully.",
+    "timestamp": "2026-03-22T00:23:32.457212",
+    "session_id": "1"
+}

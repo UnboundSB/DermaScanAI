@@ -1,0 +1,13 @@
+{
+    "status": "success",
+    "type": "progress_evaluation",
+    "tracked_symptoms": [
+        "acne",
+        "clear_face"
+    ],
+    "reported_status": "worsened",
+    "prescription": "Your skin is remaining perfectly clear! Keep doing exactly what you are doing\u2014whatever you're doing is working beautifully.",
+    "report": "10-Day Delta Analysis Complete. Status: WORSENED",
+    "timestamp": "2026-03-22T00:28:31.396308",
+    "session_id": "1"
+}

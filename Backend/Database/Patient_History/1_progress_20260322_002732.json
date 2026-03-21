@@ -1,0 +1,12 @@
+{
+    "status": "success",
+    "type": "progress_evaluation",
+    "tracked_symptoms": [
+        "acne"
+    ],
+    "reported_status": "worsened",
+    "prescription": "Stop your active treatments immediately. The scan shows increased irritation. Time to hit the emergency brake and reset your routine. Please stop all chemical exfoliants and harsh washes immediately and apply a soothing Cicaplast baume to repair your skin barrier.",
+    "report": "10-Day Delta Analysis Complete. Status: WORSENED",
+    "timestamp": "2026-03-22T00:27:32.392045",
+    "session_id": "1"
+}
