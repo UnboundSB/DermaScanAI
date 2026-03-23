@@ -1,0 +1,22 @@
+{
+    "status": "success",
+    "quality_score": 5.23,
+    "primary_diagnosis": "darkspots",
+    "confidence": 29.37,
+    "all_confidences": {
+        "acne": 14.68,
+        "clear_face": 13.0,
+        "darkspots": 29.37,
+        "puffy_eyes": 25.13,
+        "wrinkles": 17.81
+    },
+    "margin_results": {
+        "acne": 14.68,
+        "darkspots": 29.37,
+        "puffy_eyes": 25.13,
+        "wrinkles": 17.81
+    },
+    "prescription": "I've carefully analyzed your face and found early-stage acne alongside faint traces of darkspots alongside early-stage puffy eyes alongside beginning signs of wrinkles, and I'm confident we can improve this significantly.  the smartest move right now would be to introduce a gentle sulfur-based soap bar, a 5% Lactic Acid hydrating serum, a cooling caffeine eye roller, a cooling metal-tip eye gel applicator, a Matrixyl 3000 peptide serum, and a gentle Bakuchiol oil Consistency is key\u2014stick with this for at least 3 weeks.",
+    "timestamp": "2026-03-23T14:07:21.785502",
+    "session_id": "1"
+}

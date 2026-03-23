@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.73,
+    "primary_diagnosis": "acne",
+    "confidence": 45.51,
+    "all_confidences": {
+        "acne": 45.51,
+        "clear_face": 15.96,
+        "darkspots": 15.03,
+        "puffy_eyes": 0.34,
+        "wrinkles": 23.16
+    },
+    "margin_results": {
+        "acne": 45.51
+    },
+    "prescription": "My analysis shows signs of slight acne. Don't worry\u2014this responds really well to the right approach. Your skin will thank you for this intervention.  to address this properly, let's begin with a witch hazel clarifying toner or a 10% Azelaic Acid balancing serum to help balance your complexion.",
+    "timestamp": "2026-03-23T14:06:29.009127",
+    "session_id": "1"
+}
