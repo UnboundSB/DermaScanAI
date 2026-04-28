@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.12,
+    "primary_diagnosis": "clear_face",
+    "confidence": 53.72,
+    "all_confidences": {
+        "acne": 36.48,
+        "clear_face": 53.72,
+        "darkspots": 2.97,
+        "puffy_eyes": 0.36,
+        "wrinkles": 6.47
+    },
+    "margin_results": {
+        "clear_face": 53.72
+    },
+    "prescription": "Your skin is looking absolutely radiant! To maintain this gorgeous baseline, you might want to try a gentle hydrating cleanser or a silk pillowcase to prevent friction.",
+    "timestamp": "2026-04-02T16:20:30.589512",
+    "session_id": "1"
+}

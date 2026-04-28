@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.93,
+    "primary_diagnosis": "clear_face",
+    "confidence": 44.97,
+    "all_confidences": {
+        "acne": 27.59,
+        "clear_face": 44.97,
+        "darkspots": 15.59,
+        "puffy_eyes": 1.8,
+        "wrinkles": 10.06
+    },
+    "margin_results": {
+        "clear_face": 44.97
+    },
+    "prescription": "Wonderful news\u2014your complexion is in excellent condition! To maintain this gorgeous baseline, your skin will really benefit from a gentle PHA daily toner, a gentle hydrating cleanser, and a simple barrier-repairing serum.",
+    "timestamp": "2026-03-31T11:19:44.167764",
+    "session_id": "1"
+}

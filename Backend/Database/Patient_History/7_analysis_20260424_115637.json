@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 2.26,
+    "primary_diagnosis": "acne",
+    "confidence": 48.81,
+    "all_confidences": {
+        "acne": 48.81,
+        "clear_face": 31.64,
+        "darkspots": 10.22,
+        "puffy_eyes": 1.11,
+        "wrinkles": 8.22
+    },
+    "margin_results": {
+        "acne": 48.81
+    },
+    "prescription": "Upon reviewing your skin, I see early-stage acne, but with a targeted routine, we can make real progress. Your skin will thank you for this intervention.  you should definitely look into a witch hazel clarifying toner combined with a succinic acid blemish treatment for the best possible results.",
+    "timestamp": "2026-04-24T11:56:37.258795",
+    "session_id": "7"
+}

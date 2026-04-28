@@ -1,0 +1,20 @@
+{
+    "status": "success",
+    "quality_score": 4.9,
+    "primary_diagnosis": "acne",
+    "confidence": 39.91,
+    "all_confidences": {
+        "acne": 39.91,
+        "clear_face": 21.76,
+        "darkspots": 6.15,
+        "puffy_eyes": 6.35,
+        "wrinkles": 25.82
+    },
+    "margin_results": {
+        "acne": 39.91,
+        "wrinkles": 25.82
+    },
+    "prescription": "I've carefully analyzed your face and found a touch of acne alongside beginning signs of wrinkles, though I want you to know this is very manageable. I appreciate you being proactive about your skin health.  what's going to work best here is a combination approach using a niacinamide balancing serum, a snail mucin power essence, and a daily antioxidant defense mist to stop this at the source.",
+    "timestamp": "2026-03-31T11:18:08.141859",
+    "session_id": "1"
+}

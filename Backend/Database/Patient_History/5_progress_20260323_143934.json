@@ -1,0 +1,12 @@
+{
+    "status": "success",
+    "type": "progress_evaluation",
+    "tracked_symptoms": [
+        "acne"
+    ],
+    "reported_status": "worsened",
+    "prescription": "Stop your active treatments immediately. The scan shows increased irritation. Your skin is telling us loud and clear that this isn't working. Please consult a dermatologist to prevent any potential deep scarring and use only lukewarm water\u2014never hot\u2014when cleansing.",
+    "report": "10-Day Delta Analysis Complete. Status: WORSENED",
+    "timestamp": "2026-03-23T14:39:34.456552",
+    "session_id": "5"
+}

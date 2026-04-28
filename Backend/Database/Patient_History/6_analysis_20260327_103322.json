@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 2.46,
+    "primary_diagnosis": "acne",
+    "confidence": 65.78,
+    "all_confidences": {
+        "acne": 65.78,
+        "clear_face": 17.73,
+        "darkspots": 3.93,
+        "puffy_eyes": 3.52,
+        "wrinkles": 9.04
+    },
+    "margin_results": {
+        "acne": 65.78
+    },
+    "prescription": "It's evident that we are looking at persistent acne, and I'm confident we can improve this significantly. You're taking the right step by addressing this early.  let's get that under control with a Mandelic Acid gentle chemical peel and an Azelaic Acid 10% suspension to stop this at the source.",
+    "timestamp": "2026-03-27T10:33:22.466520",
+    "session_id": "6"
+}

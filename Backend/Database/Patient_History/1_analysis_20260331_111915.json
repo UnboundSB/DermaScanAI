@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 5.13,
+    "primary_diagnosis": "wrinkles",
+    "confidence": 54.36,
+    "all_confidences": {
+        "acne": 3.78,
+        "clear_face": 11.77,
+        "darkspots": 17.54,
+        "puffy_eyes": 12.55,
+        "wrinkles": 54.36
+    },
+    "margin_results": {
+        "wrinkles": 54.36
+    },
+    "prescription": "Based on the scan, I noticed a touch of wrinkles, and I'm confident we can improve this significantly. This is absolutely something we can work on together.  i highly recommend using a daily SPF 50 with added peptides and a multi-weight Hyaluronic Acid essence You should start seeing improvement in about 10-14 days.",
+    "timestamp": "2026-03-31T11:19:15.330637",
+    "session_id": "1"
+}

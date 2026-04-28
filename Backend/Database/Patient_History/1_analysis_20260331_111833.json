@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.3,
+    "primary_diagnosis": "acne",
+    "confidence": 59.06,
+    "all_confidences": {
+        "acne": 59.06,
+        "clear_face": 29.42,
+        "darkspots": 5.69,
+        "puffy_eyes": 1.19,
+        "wrinkles": 4.65
+    },
+    "margin_results": {
+        "acne": 59.06
+    },
+    "prescription": "I can see that you have surface-level acne, but with a targeted routine, we can make real progress. Catching this now gives us a great head start.  my top clinical recommendation is a succinic acid blemish treatment or a hypochlorous acid rescue spray to clear this up effectively.",
+    "timestamp": "2026-03-31T11:18:33.007767",
+    "session_id": "1"
+}

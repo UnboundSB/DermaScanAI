@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.37,
+    "primary_diagnosis": "clear_face",
+    "confidence": 58.75,
+    "all_confidences": {
+        "acne": 19.59,
+        "clear_face": 58.75,
+        "darkspots": 8.6,
+        "puffy_eyes": 0.6,
+        "wrinkles": 12.46
+    },
+    "margin_results": {
+        "clear_face": 58.75
+    },
+    "prescription": "Your skin looks incredibly healthy and clear! To maintain this gorgeous baseline, let's get that under control with a double-cleansing routine at night, a gentle hydrating cleanser, and a lightweight ceramide moisturizer.",
+    "timestamp": "2026-03-24T11:21:22.615590",
+    "session_id": "1"
+}

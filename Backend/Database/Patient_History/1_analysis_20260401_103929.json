@@ -1,0 +1,20 @@
+{
+    "status": "success",
+    "quality_score": 1.68,
+    "primary_diagnosis": "acne",
+    "confidence": 40.05,
+    "all_confidences": {
+        "acne": 40.05,
+        "clear_face": 39.68,
+        "darkspots": 9.42,
+        "puffy_eyes": 1.88,
+        "wrinkles": 8.96
+    },
+    "margin_results": {
+        "acne": 40.05,
+        "clear_face": 39.68
+    },
+    "prescription": "I am noticing distinct areas of a very mild case of acne, though I want you to know this is very manageable. You're taking the right step by addressing this early.  what's going to work best here is a combination approach using a succinic acid blemish treatment combined with a gentle sulfur-based soap bar Apply this as directed and monitor how your skin responds.",
+    "timestamp": "2026-04-01T10:39:29.211433",
+    "session_id": "1"
+}

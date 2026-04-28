@@ -1,0 +1,20 @@
+{
+    "status": "success",
+    "quality_score": 0.0,
+    "primary_diagnosis": "acne",
+    "confidence": 47.13,
+    "all_confidences": {
+        "acne": 47.13,
+        "clear_face": 45.33,
+        "darkspots": 2.76,
+        "puffy_eyes": 1.09,
+        "wrinkles": 3.7
+    },
+    "margin_results": {
+        "acne": 47.13,
+        "clear_face": 45.33
+    },
+    "prescription": "My analysis shows signs of minor acne. The positive side? We have great options to tackle this. Your skin will thank you for this intervention.  the most effective route here is a Zinc PCA daily toner for the best possible results.",
+    "timestamp": "2026-03-31T11:18:56.078583",
+    "session_id": "1"
+}

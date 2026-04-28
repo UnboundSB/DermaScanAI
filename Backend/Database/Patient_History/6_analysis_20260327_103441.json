@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 2.41,
+    "primary_diagnosis": "acne",
+    "confidence": 64.14,
+    "all_confidences": {
+        "acne": 64.14,
+        "clear_face": 11.22,
+        "darkspots": 13.12,
+        "puffy_eyes": 1.31,
+        "wrinkles": 10.22
+    },
+    "margin_results": {
+        "acne": 64.14
+    },
+    "prescription": "Ah! distinct acne, and I'm confident we can improve this significantly. Your skin will thank you for this intervention.  i'd like you to consider implementing a PHA/BHA exfoliating toner and an Adapalene 0.1% gel to stop this at the source.",
+    "timestamp": "2026-03-27T10:34:41.741931",
+    "session_id": "6"
+}

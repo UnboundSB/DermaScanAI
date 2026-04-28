@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.75,
+    "primary_diagnosis": "clear_face",
+    "confidence": 75.0,
+    "all_confidences": {
+        "acne": 19.88,
+        "clear_face": 75.0,
+        "darkspots": 2.84,
+        "puffy_eyes": 0.34,
+        "wrinkles": 1.93
+    },
+    "margin_results": {
+        "clear_face": 75.0
+    },
+    "prescription": "Your skin looks incredibly healthy and clear! To maintain this gorgeous baseline, the smartest move right now would be to introduce a double-cleansing routine at night combined with a gentle PHA daily toner.",
+    "timestamp": "2026-03-27T14:43:32.566207",
+    "session_id": "1"
+}

@@ -1,0 +1,21 @@
+{
+    "status": "success",
+    "quality_score": 2.84,
+    "primary_diagnosis": "clear_face",
+    "confidence": 30.89,
+    "all_confidences": {
+        "acne": 28.14,
+        "clear_face": 30.89,
+        "darkspots": 10.25,
+        "puffy_eyes": 1.94,
+        "wrinkles": 28.78
+    },
+    "margin_results": {
+        "acne": 28.14,
+        "clear_face": 30.89,
+        "wrinkles": 28.78
+    },
+    "prescription": "I can see that you have barely noticeable acne alongside a very mild case of wrinkles. Don't worry\u2014this responds really well to the right approach. This is absolutely something we can work on together.  based on what i'm seeing, the most effective strategy is to start with a gentle BHA liquid exfoliant, a snail mucin power essence, and a ceramide-rich daily moisturizer to help balance your complexion.",
+    "timestamp": "2026-03-23T14:37:46.519743",
+    "session_id": "5"
+}

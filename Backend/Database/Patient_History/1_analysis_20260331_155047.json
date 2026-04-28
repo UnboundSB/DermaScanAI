@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 2.64,
+    "primary_diagnosis": "acne",
+    "confidence": 45.49,
+    "all_confidences": {
+        "acne": 45.49,
+        "clear_face": 4.63,
+        "darkspots": 23.28,
+        "puffy_eyes": 2.1,
+        "wrinkles": 24.5
+    },
+    "margin_results": {
+        "acne": 45.49
+    },
+    "prescription": "I can see that you have barely noticeable acne. This is something I see often, and there are excellent solutions.  you should definitely look into a centella asiatica calming ampoule or a Zinc PCA daily toner Apply this as directed and monitor how your skin responds.",
+    "timestamp": "2026-03-31T15:50:47.669085",
+    "session_id": "1"
+}

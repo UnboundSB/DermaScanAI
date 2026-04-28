@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.87,
+    "primary_diagnosis": "acne",
+    "confidence": 61.25,
+    "all_confidences": {
+        "acne": 61.25,
+        "clear_face": 31.53,
+        "darkspots": 2.42,
+        "puffy_eyes": 1.34,
+        "wrinkles": 3.46
+    },
+    "margin_results": {
+        "acne": 61.25
+    },
+    "prescription": "Ah! visible acne, but with a targeted routine, we can make real progress. Your skin will thank you for this intervention.  here's what i'd recommend to target this specifically: a 15% Niacinamide clearing serum combined with a 2% Salicylic Acid wash left on for two minutes to overcome this.",
+    "timestamp": "2026-03-23T14:47:31.989471",
+    "session_id": "1"
+}

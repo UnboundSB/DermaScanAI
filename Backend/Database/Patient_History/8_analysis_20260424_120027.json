@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 2.7,
+    "primary_diagnosis": "acne",
+    "confidence": 54.24,
+    "all_confidences": {
+        "acne": 54.24,
+        "clear_face": 14.81,
+        "darkspots": 8.89,
+        "puffy_eyes": 2.71,
+        "wrinkles": 19.34
+    },
+    "margin_results": {
+        "acne": 54.24
+    },
+    "prescription": "It's evident that we are looking at surface-level acne. The positive side? We have great options to tackle this.  i highly recommend using a mild tea tree oil spot treatment and a witch hazel clarifying toner to clear this up effectively.",
+    "timestamp": "2026-04-24T12:00:27.965219",
+    "session_id": "8"
+}

@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 0.75,
+    "primary_diagnosis": "acne",
+    "confidence": 92.13,
+    "all_confidences": {
+        "acne": 92.13,
+        "clear_face": 2.9,
+        "darkspots": 3.28,
+        "puffy_eyes": 0.69,
+        "wrinkles": 1.01
+    },
+    "margin_results": {
+        "acne": 92.13
+    },
+    "prescription": "The imaging confirms the presence of severe acne. This is something I see often, and there are excellent solutions.  i suggest applying a prescription-strength Tretinoin cream or an Isotretinoin consultation to see a noticeable improvement.",
+    "timestamp": "2026-03-23T17:44:19.159102",
+    "session_id": "1"
+}

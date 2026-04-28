@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 4.17,
+    "primary_diagnosis": "darkspots",
+    "confidence": 56.97,
+    "all_confidences": {
+        "acne": 2.59,
+        "clear_face": 4.32,
+        "darkspots": 56.97,
+        "puffy_eyes": 8.44,
+        "wrinkles": 27.69
+    },
+    "margin_results": {
+        "darkspots": 56.97
+    },
+    "prescription": "The imaging confirms the presence of barely noticeable darkspots, but with a targeted routine, we can make real progress.  the smartest move right now would be to introduce a 2% Alpha Arbutin brightening serum combined with a daily tinted mineral sunscreen to block visible light Be patient with your skin; real change takes time but it will happen.",
+    "timestamp": "2026-03-31T11:17:44.549134",
+    "session_id": "1"
+}

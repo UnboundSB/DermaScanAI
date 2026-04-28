@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 1.28,
+    "primary_diagnosis": "acne",
+    "confidence": 84.18,
+    "all_confidences": {
+        "acne": 84.18,
+        "clear_face": 6.0,
+        "darkspots": 6.09,
+        "puffy_eyes": 0.8,
+        "wrinkles": 2.92
+    },
+    "margin_results": {
+        "acne": 84.18
+    },
+    "prescription": "I am noticing distinct areas of persistent acne, which is quite common and definitely treatable.  you should definitely look into a PHA/BHA exfoliating toner to clear this up effectively.",
+    "timestamp": "2026-03-31T11:21:47.358123",
+    "session_id": "1"
+}

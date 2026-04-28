@@ -1,0 +1,19 @@
+{
+    "status": "success",
+    "quality_score": 2.16,
+    "primary_diagnosis": "darkspots",
+    "confidence": 50.36,
+    "all_confidences": {
+        "acne": 34.48,
+        "clear_face": 4.81,
+        "darkspots": 50.36,
+        "puffy_eyes": 0.77,
+        "wrinkles": 9.58
+    },
+    "margin_results": {
+        "darkspots": 50.36
+    },
+    "prescription": "Upon reviewing your skin, I see faint traces of darkspots. The positive side? We have great options to tackle this. Catching this now gives us a great head start.  here's what i'd recommend to target this specifically: a soothing turmeric mask and a 2% Alpha Arbutin brightening serum to help balance your complexion.",
+    "timestamp": "2026-03-23T14:46:53.462402",
+    "session_id": "1"
+}

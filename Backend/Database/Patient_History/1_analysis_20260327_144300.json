@@ -1,0 +1,20 @@
+{
+    "status": "success",
+    "quality_score": 1.99,
+    "primary_diagnosis": "acne",
+    "confidence": 45.67,
+    "all_confidences": {
+        "acne": 45.67,
+        "clear_face": 35.86,
+        "darkspots": 3.79,
+        "puffy_eyes": 3.16,
+        "wrinkles": 11.51
+    },
+    "margin_results": {
+        "acne": 45.67,
+        "clear_face": 35.86
+    },
+    "prescription": "It looks like you might be experiencing slight acne, which is quite common and definitely treatable.  my top clinical recommendation is hydrocolloid pimple patches to overcome this.",
+    "timestamp": "2026-03-27T14:43:00.115849",
+    "session_id": "1"
+}
