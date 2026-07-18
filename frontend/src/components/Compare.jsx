@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Compare.css';
+import { api } from '../services/api';
 
 const Compare = ({ userId, compareScanId, setCurrentView }) => {
   const [currentScan, setCurrentScan] = useState(null);
@@ -17,7 +18,7 @@ const Compare = ({ userId, compareScanId, setCurrentView }) => {
 
       try {
         // Fetch the full history to extract both the latest and the specific historical scan
-        const response = await fetch(`http://localhost:8000/api/users/${userId}/history`);
+        const response = await api.get(`/api/users/${userId}/history`);
         if (!response.ok) throw new Error('Failed to load clinical data for comparison.');
         
         const data = await response.json();

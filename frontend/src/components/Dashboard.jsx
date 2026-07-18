@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
+import { api } from '../services/api';
 
 const Dashboard = ({ userId, setCurrentView }) => {
   const [history, setHistory] = useState([]);
@@ -11,7 +12,7 @@ const Dashboard = ({ userId, setCurrentView }) => {
     const fetchHistory = async () => {
       try {
         // FIXED: The history endpoint lives inside the users router, not scans!
-        const response = await fetch(`http://localhost:8000/api/users/${userId}/history`);
+        const response = await api.get(`/api/users/${userId}/history`);
         if (!response.ok) {
           throw new Error('Failed to fetch clinical data.');
         }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Auth.css';
+import { api } from '../services/api';
 
 const Auth = ({ onAuthSuccess }) => {
   const [showIntro, setShowIntro] = useState(true);
@@ -49,8 +50,7 @@ const Auth = ({ onAuthSuccess }) => {
     const endpoint = isLogin ? '/api/users/login' : '/api/users/register';
     
     try {
-      const response = await fetch(`http://localhost:8000${endpoint}?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, {
-        method: 'POST',
+      const response = await api.post(`${endpoint}?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, {
         headers: {
           'Accept': 'application/json'
         }

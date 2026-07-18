@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './NewScan.css';
+import { api } from '../services/api';
 
 const NewScan = ({ userId, setCurrentView }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -114,8 +115,7 @@ const NewScan = ({ userId, setCurrentView }) => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch('http://localhost:8000/api/predict/analyze', {
-        method: 'POST',
+      const response = await api.post('/api/predict/analyze', {
         body: formData
       });
 
@@ -139,6 +139,11 @@ const NewScan = ({ userId, setCurrentView }) => {
     setPreviewUrl(null);
     setReport(null);
     setError(null);
+    // ✅ FIX: if already in camera mode, inputMode won't change so the
+    // useEffect won't fire — restart the camera manually instead.
+    if (inputMode === 'camera') {
+      startCamera();
+    }
   };
 
   // Toggle between Upload and Camera modes safely

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './History.css';
+import { api } from '../services/api';
 
 const History = ({ userId, setCurrentView, setCompareScanId }) => {
   const [history, setHistory] = useState([]);
@@ -10,7 +11,7 @@ const History = ({ userId, setCurrentView, setCompareScanId }) => {
   const fetchHistory = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/users/${userId}/history`);
+      const response = await api.get(`/api/users/${userId}/history`);
       if (!response.ok) throw new Error('Failed to load clinical history.');
       const data = await response.json();
       setHistory(data.history || []);
@@ -32,9 +33,7 @@ const History = ({ userId, setCurrentView, setCompareScanId }) => {
 
     try {
       // Hits the scans.py router we built to vaporize the BLOB and the record
-      const response = await fetch(`http://localhost:8000/api/scans/${scanId}`, {
-        method: 'DELETE',
-      });
+      const response = await api.delete(`/api/scans/${scanId}`);
       
       if (!response.ok) throw new Error('Failed to delete the record.');
       
